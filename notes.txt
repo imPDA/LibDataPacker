@@ -1,0 +1,8 @@
+- The upper limit of the length of a single itemlink is 254
+
+TODO:
+- boolean field
+- pack and unpack tables with named indexes
+- use bit vector (@awamani - https://www.esoui.com/forums/showpost.php?p=51207&postcount=19)
+- ...
+- add some standard bases

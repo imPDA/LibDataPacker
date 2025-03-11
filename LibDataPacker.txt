@@ -1,0 +1,16 @@
+## Title: LibDataPacker
+## Author: |c7c42f2@impda|r [EU]
+## IsLibrary: true
+## APIVersion: 101044
+## AddOnVersion: 1001000
+; ## DependsOn: 
+## OptionalDependsOn: LibDebugLogger LibBinaryEncode
+
+logger.lua
+
+main.lua
+
+examples/superstar.lua
+examples/coordinates.lua
+examples/string.lua
+examples/common.lua
