@@ -34,55 +34,27 @@ local function coordinatesExample()
         }
     end
 
-    local exacts = {}
+    local function genarateCoordinatesExample(type, amount, precision)
+        local data = {}
+        for i = 1, amount do
+            data[i] = generateRandomCoordinate(precision)
+        end
 
-    local amountExactCoordinates = 35
-    local exactCoordinatesScheme = Field.Array(nil, amountExactCoordinates, EXACT)
+        local schema = Field.Array(nil, amount, type)
+        local packedString = LDP.Pack(data, schema)
+        local unpackedData = LDP.Unpack(packedString, schema)
 
-    local exactCoordinates = {}
-    for i = 1, amountExactCoordinates do
-        exactCoordinates[i] = generateRandomCoordinate(6)
+        return {
+            data = data,
+            packedString = packedString,
+            stringLength = #packedString,
+            unpackedData = unpackedData,
+            equal = equals(data, unpackedData),
+        }
     end
-    exacts.data = exactCoordinates
 
-    local exactCoordinatesString = LDP.Pack(exactCoordinates, exactCoordinatesScheme, LDP.Base.Base256LibBinaryEncode)
-    exacts.string = exactCoordinatesString
-    exacts.stringLength = #exactCoordinatesString
-    Log('Exact coords string: %s', exactCoordinatesString)
-
-    local exactCoordinatesUnpackedData = LDP.Unpack(exactCoordinatesString, exactCoordinatesScheme, LDP.Base.Base256LibBinaryEncode)
-    exacts.unpackedData = exactCoordinatesUnpackedData
-
-    exacts.equals = equals(exactCoordinates, exactCoordinatesUnpackedData, true)
-
-    -- ------------------------------------------------------------------------
-
-    local approximates = {}
-
-    local amountApproximateCoordinates = 70
-    local approximateCoordinatesScheme = Field.Array(nil, amountApproximateCoordinates, APPROXIMATE)
-
-    local approximateCoordinates = {}
-    for i = 1, amountApproximateCoordinates do
-        approximateCoordinates[i] = generateRandomCoordinate(3)
-    end
-    approximates.data = approximateCoordinates
-
-    local approximateCoordinatesString = LDP.Pack(approximateCoordinates, approximateCoordinatesScheme, LDP.Base.Base256LibBinaryEncode)
-    approximates.string = approximateCoordinatesString
-    approximates.stringLength = #approximateCoordinatesString
-
-    Log('Approximate coords string: %s', approximateCoordinatesString)
-
-    local approximateCoordinatesUnpackedData = LDP.Unpack(approximateCoordinatesString, approximateCoordinatesScheme, LDP.Base.Base256LibBinaryEncode)
-    approximates.unpackedData = approximateCoordinatesUnpackedData
-
-    approximates.equals = equals(approximateCoordinates, approximateCoordinatesUnpackedData, true)
-
-    -- ------------------------------------------------------------------------
-
-    LDP.examples.Coordinates.exactCoordinates = exacts
-    LDP.examples.Coordinates.approximateCoordinates = approximates
+    LDP.examples.Coordinates.exactCoordinates = genarateCoordinatesExample(EXACT, 35, 6)
+    LDP.examples.Coordinates.approximateCoordinates = genarateCoordinatesExample(APPROXIMATE, 70, 3)
 
     if Zgoo then
         Zgoo.CommandHandler('LibDataPacker.examples.Coordinates')

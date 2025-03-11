@@ -296,6 +296,8 @@ local LDP = LibDataPacker
 LDP.examples = LDP.examples or {}
 LDP.examples.SuperStar = {}
 
+local example = LDP.examples.SuperStar
+
 local function superstarExample()
     local Field = LDP.Field
 
@@ -308,7 +310,7 @@ local function superstarExample()
         Field.Number('ench. id',    20),
     }, IGNORE_NAMES)
 
-    local superStarDataScheme = Field.Table(nil, {
+    local superStarDataSchema = Field.Table(nil, {
         Field.Number('alliance',        2),
         Field.Number('race',            3),
         Field.Number('class',           3),
@@ -333,20 +335,20 @@ local function superstarExample()
     }, IGNORE_NAMES)
 
     local data = collectData()
-    LDP.examples.SuperStar.data = data
+    example.data = data
 
-    local base64string = LDP.Pack(data, superStarDataScheme)
-    LDP.examples.SuperStar.base64string = base64string
-    LDP.examples.SuperStar.stringLength = #base64string
+    local base64string = LDP.Pack(data, superStarDataSchema)
+    example.base64string = base64string
+    example.stringLength = #base64string
 
-    local unpackedData = LDP.Unpack(base64string, superStarDataScheme)
-    LDP.examples.SuperStar.unpackedData = unpackedData
+    local unpackedData = LDP.Unpack(base64string, superStarDataSchema)
+    example.unpackedData = unpackedData
 
-    LDP.examples.SuperStar.equals = equals(data, unpackedData, true)
+    example.equals = equals(data, unpackedData, false)
 
     if Zgoo then
         Zgoo.CommandHandler('LibDataPacker.examples.SuperStar')
     end
 end
 
-LDP.examples.SuperStar.run = superstarExample
+example.run = superstarExample

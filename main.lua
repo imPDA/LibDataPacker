@@ -129,14 +129,13 @@ local NUMERIC = 1
 local TABLE = 2
 local ARRAY = 3
 local BOOLEAN = 4
-local UTF8CHARACTER = 5
-local STRING = 6
+local STRING = 5
 
 --- @class Field
 --- @field __index Field
 --- @field name string|nil The field name
 --- @field fieldType integer The field type (EMPTY, NUMERIC, TABLE, ARRAY)
---- @field fullBitLength integer The full bit length of entire field
+-- @field fullBitLength integer The full bit length of entire field
 local Field = {}
 Field.__index = Field
 
@@ -167,7 +166,7 @@ end
 --- @class Numeric : Field
 --- @field __index Numeric
 --- @field bitLength integer The bit length for the numeric field
---- @field fullBitLength integer The full bit length of entire numeric field (same as bitLength actually)
+-- @field fullBitLength integer The full bit length of entire numeric field (same as bitLength actually)
 local Numeric = setmetatable({}, { __index = Field })
 Numeric.__index = Numeric
 
@@ -180,7 +179,7 @@ function Numeric.New(name, bitLength)
     local o = setmetatable(Field.New(name, NUMERIC), Numeric)
 
     o.bitLength = bitLength
-    o.fullBitLength = o.bitLength
+    -- o.fullBitLength = o.bitLength
 
     return o
 end
@@ -204,9 +203,9 @@ function Numeric:Serialize(data)
     return result
 end
 
-function Numeric:Unserialize(data)
+function Numeric:Unserialize(dataBuffer)
     -- TODO: length check
-
+    local data = dataBuffer:Read(self.bitLength)
     return binaryStringToDecimal(data)
 end
 
@@ -216,7 +215,7 @@ end
 --- @field __index Array
 --- @field length integer The array length
 --- @field subType Field The field type for array elements
---- @field fullBitLength integer The full bit length of entire array
+-- @field fullBitLength integer The full bit length of entire array
 local Array = setmetatable({}, { __index = Field })
 Array.__index = Array
 
@@ -231,7 +230,7 @@ function Array.New(name, length, subtype)
 
     o.length = length
     o.subType = subtype
-    o.fullBitLength = subtype.fullBitLength * o.length
+    -- o.fullBitLength = subtype.fullBitLength * o.length
 
     return o
 end
@@ -253,23 +252,13 @@ function Array:Serialize(data)
     return result
 end
 
-function Array:Unserialize(data)
+function Array:Unserialize(dataBuffer)
     local result = {}
 
     -- TODO: length check
 
-    local pointer = #data
-    local unserializedData, fullBitLength
     for i = self.length, 1, -1 do
-        if self.subType.fieldType == STRING then
-            unserializedData, fullBitLength = self.subType:Unserialize(data:sub(1, pointer))
-        else
-            fullBitLength = self.subType.fullBitLength
-            unserializedData = self.subType:Unserialize(data:sub(pointer - fullBitLength + 1, pointer))
-        end
-
-        pointer = pointer - fullBitLength
-        result[i] = unserializedData
+        result[i] = self.subType:Unserialize(dataBuffer)
     end
 
     return result
@@ -294,13 +283,6 @@ function Table.New(name, fields, ignoreNames)
     o.fields = fields
     o.ignoreNames = ignoreNames
 
-    local fullBitLength = 0
-    for _, field in ipairs(fields) do
-        fullBitLength = fullBitLength + field.fullBitLength
-    end
-
-    o.fullBitLength = fullBitLength
-
     return o
 end
 
@@ -321,28 +303,20 @@ function Table:Serialize(data)
     return result
 end
 
-function Table:Unserialize(data)
+function Table:Unserialize(dataBuffer)
     local result = {}
 
-    local pointer = #data
-    local field, unserializedData, fullBitLength
+    local field, unserializedData
     for i = #self.fields, 1, -1 do
         field = self.fields[i]
 
-        if field.fieldType == STRING then
-            unserializedData, fullBitLength = field:Unserialize(data:sub(1, pointer))
-        else
-            local fieldData = data:sub(pointer - field.fullBitLength + 1, pointer)
-            unserializedData = field:Unserialize(fieldData)
-            fullBitLength = field.fullBitLength
-        end
+        unserializedData = field:Unserialize(dataBuffer)
 
         if not field.name or self.ignoreNames then
             table.insert(result, 1, unserializedData)
         else
             result[field.name] = unserializedData
         end
-        pointer = pointer - fullBitLength
     end
 
     return result
@@ -352,7 +326,7 @@ end
 
 --- @class Boolean : Field
 --- @field __index Boolean
---- @field fullBitLength integer The full bit length of boolean field
+-- - @field fullBitLength integer The full bit length of boolean field
 local Boolean = setmetatable({}, { __index = Field })
 Boolean.__index = Boolean
 
@@ -362,8 +336,6 @@ Boolean.__index = Boolean
 function Boolean.New(name)
     --- @class (partial) Boolean
     local o = setmetatable(Field.New(name, BOOLEAN), Boolean)
-
-    o.fullBitLength = 1
 
     return o
 end
@@ -379,7 +351,8 @@ function Boolean:Serialize(data)
     return data and '1' or '0'
 end
 
-function Boolean:Unserialize(data)
+function Boolean:Unserialize(dataBuffer)
+    local data = dataBuffer:Read(1)
     return data == '1'
 end
 
@@ -387,7 +360,7 @@ end
 
 --- @class String : Field
 --- @field __index String
---- @field fullBitLength integer The full bit length of boolean field
+-- @field fullBitLength integer The full bit length of boolean field
 local String = setmetatable({}, { __index = Field })
 String.__index = String
 
@@ -400,8 +373,6 @@ function String.New(name, maxLength)
 
     local lengthBits = math.ceil(math.log(maxLength) / math.log(2))
     o.length = Numeric.New(nil, lengthBits)
-
-    o.fullBitLength = 0
 
     return o
 end
@@ -426,19 +397,16 @@ function String:Serialize(data)
     return result
 end
 
-function String:Unserialize(data)
+function String:Unserialize(dataBuffer)
     local result = ''
-    local pointer = #data
 
-    local bytesTotal = self.length:Unserialize(data:sub(pointer - self.length.bitLength + 1, pointer))
-    pointer = pointer - self.length.bitLength
+    local bytesTotal = self.length:Unserialize(dataBuffer)
 
     Log('Unserializing the string of bytes length %d', bytesTotal)
 
     local bytesRead = 0
     while bytesRead < bytesTotal do
-        local firstByte = binaryStringToDecimal(data:sub(pointer - 7, pointer))
-        pointer = pointer - 8
+        local firstByte = binaryStringToDecimal(dataBuffer:Read(8))
 
         local numBytes = 1
         if firstByte >= 0xC0 and firstByte < 0xE0 then
@@ -451,18 +419,14 @@ function String:Unserialize(data)
 
         local bytes = {firstByte}
         for j = 2, numBytes do
-            local byteBinary = data:sub(pointer - 7, pointer)
-            pointer = pointer - 8
-            bytes[j] = binaryStringToDecimal(byteBinary)
+            bytes[j] = binaryStringToDecimal(dataBuffer:Read(8))
         end
 
         result = result .. string.char(unpack(bytes))
         bytesRead = bytesRead + #bytes
     end
 
-    Log('Pointer at start: %d, pointer at end: %d, difference: %d', #data, pointer, #data - pointer)
-
-    return result, #data - pointer
+    return result
 end
 
 -- ----------------------------------------------------------------------------
@@ -493,7 +457,7 @@ end
 
 function lib.Unpack(data, schema, base)
     base = base or Base64LinkSafe
-    return schema:Unserialize(base:Decode(data))
+    return schema:Unserialize(Buffer.New(base:Decode(data)))
 end
 
 -- ----------------------------------------------------------------------------
