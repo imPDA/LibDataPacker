@@ -12,10 +12,9 @@ local function generaterandomStats()
     return {
         'SomeRandomId' .. tostring(math.floor(math.random() * 10000)),
         math.random(2) == 2,
-        math.floor(math.random() * 16770000),
-        math.floor(math.random() * 16770000),
-        math.floor(math.random() * 16770000),
-        math.floor(math.random() * 2047),
+        math.floor(math.random() * 16380),
+        -- math.floor(math.random() * 16770000),
+        math.floor(math.random() * 16380),
     }
 end
 
@@ -64,18 +63,24 @@ local function commonExample()
     local playerStats = Field.Table(nil, {
         Field.String('displayName', 50),
         Field.Bool('someFlag'),
-        Field.Number('damageDone', 24),  -- ~16.77М max
-        Field.Number('damageTaken', 24),
-        Field.Number('healingDone', 24),
+        Field.Number('damageDone', 14),  -- in K of damage/healing, 1 = 1K, 2^14-1 = 16383K; ~16.38M max in total
+        -- Field.Number('damageTaken', 24),
+        Field.Number('healingDone', 14),
+    }, IGNORE_NAMES)
+
+    local schema = Field.Table(nil, {
+        Field.Array('groupStats', 12, playerStats),
         Field.Number('durationSeconds', 11),  -- 2047 seconds or ~34 minutes max
     }, IGNORE_NAMES)
 
-    local schema = Field.Array('groupStats', 12, playerStats)
-
-    local data = {}
+    local statsArray = {}
     for i = 1, 12 do
-        data[#data+1] = generaterandomStats()
+        statsArray[#statsArray+1] = generaterandomStats()
     end
+    local data = {
+        statsArray,
+        math.floor(math.random() * 2047),
+    }
 
     example.data = data
 
