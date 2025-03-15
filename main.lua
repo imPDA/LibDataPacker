@@ -130,6 +130,7 @@ local TABLE = 2
 local ARRAY = 3
 local BOOLEAN = 4
 local STRING = 5
+local ENUM = 6
 
 --- @class Field
 --- @field __index Field
@@ -230,7 +231,6 @@ function Array.New(name, length, subtype)
 
     o.length = length
     o.subType = subtype
-    -- o.fullBitLength = subtype.fullBitLength * o.length
 
     return o
 end
@@ -296,8 +296,10 @@ function Table:Serialize(data)
         return
     end
 
+    local datum
     for i, field in ipairs(self.fields) do
-        result = result .. field:Serialize(data[i])
+        datum = self.ignoreNames and data[i] or data[field.name]
+        result = result .. field:Serialize(datum)
     end
 
     return result
@@ -431,6 +433,133 @@ end
 
 -- ----------------------------------------------------------------------------
 
+--- @class Enum : Field
+--- @field __index Enum
+-- - @field fullBitLength integer The full bit length of boolean field
+local Enum = setmetatable({}, { __index = Field })
+Enum.__index = Enum
+
+--- Creates a new Enum field
+--- @param name string|nil The field name
+--- @param enumTable table The table of values
+--- @param inverted boolean|nil If the table is lookup table instead
+--- @return Enum @The new Enum field
+function Enum.New(name, enumTable, inverted)
+    --- @class (partial) Enum
+    local o = setmetatable(Field.New(name, ENUM), Enum)
+
+    o.forward = enumTable
+
+    o.backward = {}
+    for k, v in pairs(enumTable) do
+        o.backward[v] = k
+    end
+
+    if inverted then
+        o.forward, o.backward = o.backward, o.forward
+    end
+
+    local bitLength = math.ceil(math.log(#o.backward + 1) / math.log(2))
+    o.subType = Numeric.New(nil, bitLength)
+
+    return o
+end
+
+--- Handles a boolean value
+--- @param data any The data to handle
+--- @return string|nil The binary string representation, or nil on error
+function Enum:Serialize(data)
+    local newValue = self.forward[data]
+
+    if newValue == nil then
+        error('Value is not found in enum table')
+    end
+
+    return self.subType:Serialize(newValue)
+end
+
+function Enum:Unserialize(dataBuffer)
+    local result = self.subType:Unserialize(dataBuffer)
+    local newResult = self.backward[result]
+
+    if newResult == nil then
+        error('Value not found in lookup table')
+    end
+
+    return newResult
+end
+
+-- ----------------------------------------------------------------------------
+
+--- @class EnumDecorator
+--- @field __index EnumDecorator
+local EnumDecorator = {}
+EnumDecorator.__index = EnumDecorator
+
+--- Creates a new Enum field
+--- @param enumTable table Lookup table
+--- @return EnumDecorator @The new Enum field
+function EnumDecorator.New(enumTable, inverted)
+    --- @class (partial) EnumDecorator
+    local o = setmetatable({}, EnumDecorator)
+
+    o.forward = enumTable
+
+    o.backward = {}
+    for k, v in pairs(enumTable) do
+        o.backward[v] = k
+    end
+
+    if inverted then
+        o.forward, o.backward = o.backward, o.forward
+    end
+
+    return o
+end
+
+--- Handles a enum value
+--- @param field Field The field to decorate
+--- @return Field @Decorated field
+function EnumDecorator.__call(self, field)
+    Log('Serializing Enum')
+    if field.fieldType == TABLE then
+        Log('Table, skipping')
+        return field
+    end
+
+    local originalSerialize = field.Serialize
+    field.Serialize = function(_self, data)
+        Log('Data: %s', table.concat(data, ', '))
+        local newData = {}
+        for k, v in pairs(data) do
+            newData[k] = self.forward[v]
+        end
+        Log('New data: %s', table.concat(newData, ', '))
+
+        Log('Original field type: %s', field.fieldType)
+        local result = originalSerialize(_self, newData)
+        Log('Result: %s', tostring(result))
+
+        return result
+    end
+
+    local originalUnserialize = field.Unserialize
+    field.Unserialize = function(_self, data)
+        local originalReturn = originalUnserialize(_self, data)
+
+        local newReturn = {}
+        for k, v in pairs(originalReturn) do
+            newReturn[k] = self.backward[v]
+        end
+
+        return newReturn
+    end
+
+    return field
+end
+
+-- ----------------------------------------------------------------------------
+
 lib.Base = {
     Custom = Base.FromAlphabet,
     Base64RCF4648 = Base64RCF4648,
@@ -447,6 +576,7 @@ lib.Field = {
     Table = Table.New,
     Bool = Boolean.New,
     String = String.New,
+    Enum = Enum.New,
 }
 
 function lib.Pack(data, schema, base)

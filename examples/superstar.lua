@@ -344,6 +344,10 @@ local function superstarExample()
     local unpackedData = LDP.Unpack(base64string, superStarDataSchema)
     example.unpackedData = unpackedData
 
+    superStarDataSchema.ignoreNames = false
+    local unpackedDataStringIndexed = LDP.Unpack(base64string, superStarDataSchema)
+    example.unpackedDataStringIndexed = unpackedDataStringIndexed
+
     example.equals = equals(data, unpackedData, false)
 
     if Zgoo then

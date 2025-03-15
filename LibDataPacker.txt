@@ -4,7 +4,7 @@
 ## APIVersion: 101044
 ## AddOnVersion: 1001000
 ; ## DependsOn: 
-## OptionalDependsOn: LibDebugLogger LibBinaryEncode
+## OptionalDependsOn: LibDebugLogger LibBinaryEncode WizardsWardrobe Zgoo
 
 logger.lua
 
@@ -14,3 +14,5 @@ examples/superstar.lua
 examples/coordinates.lua
 examples/string.lua
 examples/common.lua
+examples/enum.lua
+examples/ww.lua

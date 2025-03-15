@@ -2,31 +2,27 @@ local Log = LibDataPacker_Logger()
 
 local LDP = LibDataPacker
 LDP.examples = LDP.examples or {}
-LDP.examples.Common = {}
+LDP.examples.Enum = {}
 
-local example = LDP.examples.Common
+local example = LDP.examples.Enum
 
 -- ----------------------------------------------------------------------------
 
-local skillsLookupTable = {
-    123456,
-    789012,
-    345678,
-    901234,
-}
+local skillsLookupTable = {}
+do
+    for i = 1, 100 do
+        skillsLookupTable[i] = 100000 + i
+    end
+end
 
-local function generaterandomStats()
-    return {
-        'SomeRandomId' .. tostring(math.floor(math.random() * 10000)),
-        math.random(2) == 2,
-        math.floor(math.random() * 16380),
-        -- math.floor(math.random() * 16770000),
-        math.floor(math.random() * 16380),
-        {
-            skillsLookupTable[math.random(#skillsLookupTable)],
-            skillsLookupTable[math.random(#skillsLookupTable)],
-        }
-    }
+local function generateSkills(number)
+    local skillsArray = {}
+
+    for i = 1, number do
+        skillsArray[i] = skillsLookupTable[math.random(#skillsLookupTable)]
+    end
+
+    return skillsArray
 end
 
 --- https://stackoverflow.com/questions/20325332/how-to-check-if-two-tablesobjects-have-the-same-value-in-lua
@@ -66,36 +62,23 @@ end
 
 -- ----------------------------------------------------------------------------
 
-local function commonExample()
+local function enumExample()
     local Field = LDP.Field
 
     local IGNORE_NAMES = true
     local INVERTED = true
 
-    local skillField = Field.Enum('skill', skillsLookupTable, INVERTED)
-    example.skillField = skillField
-
-    local playerStats = Field.Table(nil, {
-        Field.String('displayName', 50),
-        Field.Bool('someFlag'),
-        Field.Number('damageDone', 14),  -- in K of damage/healing, 1 = 1K, 2^14-1 = 16383K; ~16.38M max in total
-        -- Field.Number('damageTaken', 24),
-        Field.Number('healingDone', 14),
-        Field.Array('skills', 2, skillField),
-    }, IGNORE_NAMES)
+    local skill = Field.Enum('skill', skillsLookupTable, INVERTED)
 
     local schema = Field.Table(nil, {
-        Field.Array('groupStats', 12, playerStats),
-        Field.Number('durationSeconds', 11),  -- 2047 seconds or ~34 minutes max
+        Field.Array('front panel', 6, skill),
+        Field.Array('back panel', 6, skill),
     }, IGNORE_NAMES)
 
-    local statsArray = {}
-    for i = 1, 12 do
-        statsArray[#statsArray+1] = generaterandomStats()
-    end
+
     local data = {
-        statsArray,
-        math.floor(math.random() * 2047),
+        generateSkills(6),
+        generateSkills(6),
     }
 
     example.data = data
@@ -115,8 +98,8 @@ local function commonExample()
     example.equals2 = equals(example.data, example.unpackedData2, false)
 
     if Zgoo then
-        Zgoo.CommandHandler('LibDataPacker.examples.Common')
+        Zgoo.CommandHandler('LibDataPacker.examples.Enum')
     end
 end
 
-example.run = commonExample
+example.run = enumExample
