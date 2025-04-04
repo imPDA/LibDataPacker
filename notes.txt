@@ -6,3 +6,4 @@ TODO:
 - use bit vector (@awamani - https://www.esoui.com/forums/showpost.php?p=51207&postcount=19)
 - ...
 - add some standard bases
+- maximum SV string length 2000

@@ -216,6 +216,6 @@ example.run = function()
     WWExample()
 end
 
-do
-    zo_callLater(example.run, 1000)
-end
+-- do
+--     zo_callLater(example.run, 1000)
+-- end

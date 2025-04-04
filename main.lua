@@ -1,126 +1,16 @@
-local Log = LibDataPacker_Logger()
+-- local Log = LibDataPacker_Logger()
+local BinaryBuffer = LibDataPacker_BinaryBuffer
+local floor = math.floor
+local ceil = math.ceil
+local log = math.log
 
 local lib = {}
 
 -- ----------------------------------------------------------------------------
 
---- Converts a decimal number to a binary string of specified length.
---- @param decimal integer The decimal number to convert
---- @param bitLength integer The desired length of the binary string
---- @return string The binary string representation with leading zeros
-local function decimalToBinaryString(decimal, bitLength)
-    local binaryString = ''
-
-    while decimal > 0 do
-        binaryString = (decimal % 2 == 1 and '1' or '0') .. binaryString
-        decimal = math.floor(decimal / 2)
-    end
-
-    return string.rep('0', bitLength - #binaryString) .. binaryString
+local function maxBitLengthFor(number)
+    return ceil(log(number + 1) / log(2))
 end
-
---[[  -- TODO: test
-function byte_to_binary(byte)
-    local binary = ""
-    for i = 7, 0, -1 do
-        binary = binary .. (byte >> i & 1)
-    end
-    return binary
-end
-]]
-
---- Converts a binary string to a decimal number.
---- @param binaryString string The binary string to convert
---- @return integer The resulting decimal number
-local function binaryStringToDecimal(binaryString)
-    local dec = 0
-
-    for i = 1, #binaryString do
-        local bit = binaryString:sub(i, i)
-        dec = dec * 2 + (bit == '1' and 1 or 0)
-    end
-
-    return dec
-end
-
--- ----------------------------------------------------------------------------
-
-local Buffer = {}
-Buffer.__index = Buffer
-
-function Buffer.New(data)
-    local instance = setmetatable({}, Buffer)
-
-    instance.data = data
-    instance.pointer = #data
-
-    return instance
-end
-
-function Buffer:Read(len)
-    self.pointer = self.pointer - len
-    return self.data:sub(self.pointer + 1, self.pointer + len)
-end
-
--- ----------------------------------------------------------------------------
-
---- @class Base
---- @field __index Base
---- @field alphabet string The alphabet to use
---- @field encodeTable table Encode table based on alphabet 
---- @field lookupTable table Lookup table based on alphabet 
---- @field bitLength integer Bit length of one charater from the alphabet
-local Base = {}
-Base.__index = Base
-
-function Base.FromAlphabet(alphabet)
-    Log('Alphabet: %s', alphabet)
-
-    local concreteBase = {}
-
-    setmetatable(concreteBase, { __index = Base })
-    concreteBase.__index = concreteBase
-
-    concreteBase.alphabet = alphabet
-    concreteBase.bitLength = math.floor(math.log(#alphabet) / math.log(2))
-
-    Log('Alphabet length: %d, bit length: %d', #alphabet, concreteBase.bitLength)
-
-    local lookupTable = {}
-    for i = 1, #alphabet do
-        lookupTable[alphabet:sub(i, i)] = i - 1
-    end
-
-    concreteBase.lookupTable = lookupTable
-
-    return concreteBase
-end
-
-function Base:Encode(binaryString)
-    local encodedString = ''
-
-    for i = #binaryString, 1, -self.bitLength do
-        local startIndex = i - self.bitLength + 1 > 1 and i - self.bitLength + 1 or 1
-        local dec = binaryStringToDecimal(binaryString:sub(startIndex, i))
-        encodedString = encodedString .. self.alphabet:sub(dec+1, dec+1)
-    end
-
-    return encodedString
-end
-
-function Base:Decode(encodedString)
-    local binaryString = ''
-
-    for i = 1, #encodedString do
-        local decimal = self.lookupTable[encodedString:sub(i, i)]
-        binaryString = decimalToBinaryString(decimal, self.bitLength) .. binaryString
-    end
-
-    return binaryString
-end
-
-local Base64RCF4648 = Base.FromAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/')
-local Base64LinkSafe = Base.FromAlphabet('23456789CFGHJMPQRVWXcfghjmpqrvwx01bBdDkKlLsStT!@#&=_{};,<>`~-]*/')
 
 -- ----------------------------------------------------------------------------
 
@@ -131,12 +21,15 @@ local ARRAY = 3
 local BOOLEAN = 4
 local STRING = 5
 local ENUM = 6
+local VARIABLE_LENGTH_ARRAY = 7
+local OPTIONAL = 8
+
+-- ----------------------------------------------------------------------------
 
 --- @class Field
 --- @field __index Field
 --- @field name string|nil The field name
 --- @field fieldType integer The field type (EMPTY, NUMERIC, TABLE, ARRAY)
--- @field fullBitLength integer The full bit length of entire field
 local Field = {}
 Field.__index = Field
 
@@ -154,7 +47,7 @@ function Field.New(name, fieldType)
     return o
 end
 
-function Field:Serialize(data)
+function Field:Serialize(data, buffer)
     assert(false, 'Must be overridden')
 end
 
@@ -174,40 +67,42 @@ Numeric.__index = Numeric
 --- Creates a new Numeric field
 --- @param name string|nil The field name
 --- @param bitLength integer The bit length for the numeric field
+--- @param precision integer|nil
 --- @return Numeric @The new Numeric field
-function Numeric.New(name, bitLength)
+function Numeric.New(name, bitLength, precision)
     --- @class (partial) Numeric
     local o = setmetatable(Field.New(name, NUMERIC), Numeric)
 
     o.bitLength = bitLength
-    -- o.fullBitLength = o.bitLength
+    o.precision = precision
 
     return o
+end
+
+local function transformForward(number, numDecimalPlaces)
+    local mult = 10^(numDecimalPlaces or 0)
+    return floor(number * mult + 0.5)
+end
+
+local function transformBackward(number, numDecimalPlaces)
+    local mult = 10^(numDecimalPlaces or 0)
+    return number / mult
 end
 
 --- Handles a numeric value
 --- @param data number The numeric data to handle
 --- @return string|nil The binary string representation, or nil on error
-function Numeric:Serialize(data)
-    if not assert(type(data) == 'number', 'Value must be a number.') then
+function Numeric:Serialize(data, binaryBuffer)
+    if not assert(type(data) == 'number', ('Value must be a number, got %s: %s'):format(type(data), tostring(data))) then
         return
     end
 
-    local result = decimalToBinaryString(data, self.bitLength)
-
-    if #result > self.bitLength then
-        local ERROR = 'Value is outside of upper bound'
-        Log('%s, data: %s, result: %d, maxlength: %d', ERROR, data, result, self.bitLength)
-        error(ERROR)
-    end
-
-    return result
+    BinaryBuffer.Write(binaryBuffer, transformForward(data, self.precision), self.bitLength)
 end
 
-function Numeric:Unserialize(dataBuffer)
+function Numeric:Unserialize(binaryBuffer)
     -- TODO: length check
-    local data = dataBuffer:Read(self.bitLength)
-    return binaryStringToDecimal(data)
+    return transformBackward(BinaryBuffer.Read(binaryBuffer, self.bitLength), self.precision)
 end
 
 -- ----------------------------------------------------------------------------
@@ -216,7 +111,6 @@ end
 --- @field __index Array
 --- @field length integer The array length
 --- @field subType Field The field type for array elements
--- @field fullBitLength integer The full bit length of entire array
 local Array = setmetatable({}, { __index = Field })
 Array.__index = Array
 
@@ -238,18 +132,14 @@ end
 --- Handles an array of values
 --- @param data table The array data to handle
 --- @return string|nil The binary string representation, or nil on error
-function Array:Serialize(data)
-    local result = ''
-
+function Array:Serialize(data, binaryBuffer)
     if not assert(type(data) == 'table', 'Value must be a table.') then
         return
     end
 
     for _, datum in ipairs(data) do
-        result = result .. self.subType:Serialize(datum)
+        self.subType:Serialize(datum, binaryBuffer)
     end
-
-    return result
 end
 
 function Array:Unserialize(dataBuffer)
@@ -257,8 +147,63 @@ function Array:Unserialize(dataBuffer)
 
     -- TODO: length check
 
-    for i = self.length, 1, -1 do
+    for i = 1, self.length do
         result[i] = self.subType:Unserialize(dataBuffer)
+    end
+
+    return result
+end
+
+-- ----------------------------------------------------------------------------
+
+--- @class VLArray : Field
+--- @field __index VLArray
+--- @field maxLength integer The array max length
+--- @field subType Field The field type for array elements
+local VLArray = setmetatable({}, { __index = Field })
+VLArray.__index = VLArray
+
+--- Creates a new VLArray field
+--- @param name string|nil The field name
+--- @param maxLength integer The array max length
+--- @param subtype Field The field type for array elements
+--- @return VLArray The new Array field
+function VLArray.New(name, maxLength, subtype)
+    --- @class (partial) VLArray
+    local o = setmetatable(Field.New(name, VARIABLE_LENGTH_ARRAY), VLArray)
+
+    local bitLength = maxBitLengthFor(maxLength)
+    o.length = Numeric.New(nil, bitLength)
+
+    o.subType = subtype
+
+    return o
+end
+
+--- Handles an array of values
+--- @param data table The array data to handle
+--- @return string|nil The binary string representation, or nil on error
+function VLArray:Serialize(data, binaryBuffer)
+    if not assert(type(data) == 'table', 'Value must be a table.') then
+        return
+    end
+
+    self.length:Serialize(#data, binaryBuffer)
+
+    for _, datum in ipairs(data) do
+        self.subType:Serialize(datum, binaryBuffer)
+    end
+end
+
+function VLArray:Unserialize(binaryBuffer)
+    local result = {}
+
+    -- TODO: length check
+
+    local length = self.length:Unserialize(binaryBuffer)
+
+    for i = 1, length do
+        result[i] = self.subType:Unserialize(binaryBuffer)
     end
 
     return result
@@ -289,8 +234,8 @@ end
 --- Handles a table of values
 --- @param data table The table data to handle
 --- @return string|nil @The binary string representation, or nil on error
-function Table:Serialize(data)
-    local result = ''
+function Table:Serialize(data, binaryBuffer)
+    -- local result = ''
 
     if not assert(type(data) == 'table', 'Value must be a table.') then
         return
@@ -298,24 +243,28 @@ function Table:Serialize(data)
 
     local datum
     for i, field in ipairs(self.fields) do
-        datum = self.ignoreNames and data[i] or data[field.name]
-        result = result .. field:Serialize(datum)
+        if self.ignoreNames then
+            datum = data[i]
+        else
+            datum = data[field.name]
+        end
+        field:Serialize(datum, binaryBuffer)
     end
 
-    return result
+    -- return result
 end
 
 function Table:Unserialize(dataBuffer)
     local result = {}
 
     local field, unserializedData
-    for i = #self.fields, 1, -1 do
+    for i = 1, #self.fields do
         field = self.fields[i]
 
         unserializedData = field:Unserialize(dataBuffer)
 
         if not field.name or self.ignoreNames then
-            table.insert(result, 1, unserializedData)
+            table.insert(result, unserializedData)
         else
             result[field.name] = unserializedData
         end
@@ -328,7 +277,6 @@ end
 
 --- @class Boolean : Field
 --- @field __index Boolean
--- - @field fullBitLength integer The full bit length of boolean field
 local Boolean = setmetatable({}, { __index = Field })
 Boolean.__index = Boolean
 
@@ -345,17 +293,17 @@ end
 --- Handles a boolean value
 --- @param data boolean The boolean data to handle
 --- @return string|nil The binary string representation, or nil on error
-function Boolean:Serialize(data)
+function Boolean:Serialize(data, binaryBuffer)
+    -- Log('data: %s', tostring(data))
     if not assert(type(data) == 'boolean', 'Value must be a boolean.') then
         return
     end
 
-    return data and '1' or '0'
+    BinaryBuffer.WriteBit(binaryBuffer, data and 1 or 0)
 end
 
 function Boolean:Unserialize(dataBuffer)
-    local data = dataBuffer:Read(1)
-    return data == '1'
+    return dataBuffer:Read(1) == 1
 end
 
 -- ----------------------------------------------------------------------------
@@ -373,7 +321,7 @@ function String.New(name, maxLength)
     --- @class (partial) String
     local o = setmetatable(Field.New(name, STRING), String)
 
-    local lengthBits = math.ceil(math.log(maxLength) / math.log(2))
+    local lengthBits = maxBitLengthFor(maxLength)
     o.length = Numeric.New(nil, lengthBits)
 
     return o
@@ -382,33 +330,26 @@ end
 --- Handles a string value
 --- @param data string The string data to handle
 --- @return string|nil The binary string representation, or nil on error
-function String:Serialize(data)
+function String:Serialize(data, binaryBuffer)
     if not assert(type(data) == 'string', 'Value must be a string.') then
         return
     end
 
-    local result = self.length:Serialize(#data)
+    self.length:Serialize(#data, binaryBuffer)
 
-    Log('Serializing the string %s of length %d, serializedLength: %s', data, #data, result)
     for i = 1, #data do
         local byte = data:byte(i)
-        local binaryByte = decimalToBinaryString(byte, 8)
-        result = binaryByte .. result
+        BinaryBuffer.Write(binaryBuffer, byte, 8)
     end
-
-    return result
 end
 
 function String:Unserialize(dataBuffer)
-    local result = ''
-
     local bytesTotal = self.length:Unserialize(dataBuffer)
 
-    Log('Unserializing the string of bytes length %d', bytesTotal)
-
     local bytesRead = 0
+    local tempTable, i = {}, 1
     while bytesRead < bytesTotal do
-        local firstByte = binaryStringToDecimal(dataBuffer:Read(8))
+        local firstByte = BinaryBuffer.Read(dataBuffer, 8)
 
         local numBytes = 1
         if firstByte >= 0xC0 and firstByte < 0xE0 then
@@ -421,21 +362,21 @@ function String:Unserialize(dataBuffer)
 
         local bytes = {firstByte}
         for j = 2, numBytes do
-            bytes[j] = binaryStringToDecimal(dataBuffer:Read(8))
+            bytes[j] = BinaryBuffer.Read(dataBuffer, 8)
         end
 
-        result = result .. string.char(unpack(bytes))
+        tempTable[i] = string.char(unpack(bytes))
+        i = i + 1
         bytesRead = bytesRead + #bytes
     end
 
-    return result
+    return table.concat(tempTable)
 end
 
 -- ----------------------------------------------------------------------------
 
 --- @class Enum : Field
 --- @field __index Enum
--- - @field fullBitLength integer The full bit length of boolean field
 local Enum = setmetatable({}, { __index = Field })
 Enum.__index = Enum
 
@@ -459,7 +400,7 @@ function Enum.New(name, enumTable, inverted)
         o.forward, o.backward = o.backward, o.forward
     end
 
-    local bitLength = math.ceil(math.log(#o.backward + 1) / math.log(2))
+    local bitLength = maxBitLengthFor(#o.backward)
     o.subType = Numeric.New(nil, bitLength)
 
     return o
@@ -468,14 +409,14 @@ end
 --- Handles a boolean value
 --- @param data any The data to handle
 --- @return string|nil The binary string representation, or nil on error
-function Enum:Serialize(data)
+function Enum:Serialize(data, binaryBuffer)
     local newValue = self.forward[data]
 
     if newValue == nil then
-        error('Value is not found in enum table')
+        error(('Value %s is not found in enum table'):format(tostring(data)))
     end
 
-    return self.subType:Serialize(newValue)
+    self.subType:Serialize(newValue, binaryBuffer)
 end
 
 function Enum:Unserialize(dataBuffer)
@@ -483,7 +424,7 @@ function Enum:Unserialize(dataBuffer)
     local newResult = self.backward[result]
 
     if newResult == nil then
-        error('Value not found in lookup table')
+        error(('Value %s not found in lookup table'):format(tostring(result)))
     end
 
     return newResult
@@ -491,6 +432,44 @@ end
 
 -- ----------------------------------------------------------------------------
 
+--- @class Optional : Field
+--- @field __index Optional
+--- @field subfield Field Subfield
+local Optional = setmetatable({}, { __index = Field })
+Optional.__index = Optional
+
+--- Creates a new Optional field
+--- @param subfield Field The subfield
+--- @return Optional @The new Optional field
+function Optional.New(subfield)
+    --- @class (partial) Optional
+    local o = setmetatable(Field.New(subfield.name, OPTIONAL), Optional)
+
+    o.subfield = subfield
+
+    return o
+end
+
+--- Handles a data
+--- @param data any The field data to handle
+--- @return string|nil The binary string representation, or nil on error
+function Optional:Serialize(data, binaryBuffer)
+    binaryBuffer:WriteBit(data == nil and 0 or 1)
+
+    if data ~= nil then
+        self.subfield:Serialize(data, binaryBuffer)
+    end
+end
+
+function Optional:Unserialize(dataBuffer)
+    if dataBuffer:Read(1) == 0 then return end
+
+    return self.subfield:Unserialize(dataBuffer)
+end
+
+-- ----------------------------------------------------------------------------
+
+--[[
 --- @class EnumDecorator
 --- @field __index EnumDecorator
 local EnumDecorator = {}
@@ -557,37 +536,33 @@ function EnumDecorator.__call(self, field)
 
     return field
 end
+]]
 
 -- ----------------------------------------------------------------------------
-
-lib.Base = {
-    Custom = Base.FromAlphabet,
-    Base64RCF4648 = Base64RCF4648,
-    Base64LinkSafe = Base64LinkSafe,
-    Base256LibBinaryEncode = {
-        Encode = LBE.Encode,
-        Decode = LBE.DecodeToString,
-    },
-}
 
 lib.Field = {
     Number = Numeric.New,
     Array = Array.New,
+    VLArray = VLArray.New,
     Table = Table.New,
     Bool = Boolean.New,
     String = String.New,
     Enum = Enum.New,
+    Optional = Optional.New,
 }
 
 function lib.Pack(data, schema, base)
-    Log('Packing data with base ', tostring(base))
-    base = base or Base64LinkSafe
-    return base:Encode(schema:Serialize(data))
+    base = base or lib.Base.Base64RCF4648
+
+    local binaryBuffer = BinaryBuffer.New()
+    schema:Serialize(data, binaryBuffer)
+
+    return base:Encode(binaryBuffer)
 end
 
 function lib.Unpack(data, schema, base)
-    base = base or Base64LinkSafe
-    return schema:Unserialize(Buffer.New(base:Decode(data)))
+    base = base or lib.Base.Base64RCF4648
+    return schema:Unserialize(base:Decode(data))
 end
 
 -- ----------------------------------------------------------------------------

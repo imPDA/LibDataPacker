@@ -104,19 +104,23 @@ local function commonExample()
     example.base64length = #example.base64string
     Log('Base64 string: %s', example.base64string)
 
-    example.base256string = LDP.Pack(data, schema, LDP.Base.Base256LibBinaryEncode)
-    example.base256length = #example.base256string
-    Log('Base256 string: %s', example.base256string)
+    if Zgoo then Zgoo.CommandHandler('LibDataPacker.examples.Common') end
+
+    -- example.base256string = LDP.Pack(data, schema, LDP.Base.Base256LibBinaryEncode)
+    -- example.base256length = #example.base256string
+    -- Log('Base256 string: %s', example.base256string)
 
     example.unpackedData1 = LDP.Unpack(example.base64string, schema)
     example.equals1 = equals(example.data, example.unpackedData1, false)
 
-    example.unpackedData2 = LDP.Unpack(example.base256string, schema, LDP.Base.Base256LibBinaryEncode)
-    example.equals2 = equals(example.data, example.unpackedData2, false)
+    -- example.unpackedData2 = LDP.Unpack(example.base256string, schema, LDP.Base.Base256LibBinaryEncode)
+    -- example.equals2 = equals(example.data, example.unpackedData2, false)
 
-    if Zgoo then
-        Zgoo.CommandHandler('LibDataPacker.examples.Common')
-    end
+    if Zgoo then Zgoo.CommandHandler('LibDataPacker.examples.Common') end
 end
 
 example.run = commonExample
+
+-- do
+--     example.run()
+-- end
