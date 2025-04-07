@@ -60,33 +60,34 @@ end
 --- @class Numeric : Field
 --- @field __index Numeric
 --- @field bitLength integer The bit length for the numeric field
--- @field fullBitLength integer The full bit length of entire numeric field (same as bitLength actually)
 local Numeric = setmetatable({}, { __index = Field })
 Numeric.__index = Numeric
+
+--- @class NumericWithPrecision : Field
+--- @field __index NumericWithPrecision
+--- @field bitLength integer The bit length for the numeric field
+--- @field mult number Multiplier
+local NumericWithPrecision = setmetatable({}, { __index = Field })
+NumericWithPrecision.__index = NumericWithPrecision
 
 --- Creates a new Numeric field
 --- @param name string|nil The field name
 --- @param bitLength integer The bit length for the numeric field
 --- @param precision integer|nil
---- @return Numeric @The new Numeric field
+--- @return Numeric|NumericWithPrecision @The new Numeric field
 function Numeric.New(name, bitLength, precision)
     --- @class (partial) Numeric
-    local o = setmetatable(Field.New(name, NUMERIC), Numeric)
-
+    local o = Field.New(name, NUMERIC)
     o.bitLength = bitLength
-    o.precision = precision
+
+    if precision and type(precision) == 'number' and precision ~= 0 then
+        setmetatable(o, NumericWithPrecision)
+        o.mult = 10^precision
+    else
+        setmetatable(o, Numeric)
+    end
 
     return o
-end
-
-local function transformForward(number, numDecimalPlaces)
-    local mult = 10^(numDecimalPlaces or 0)
-    return floor(number * mult + 0.5)
-end
-
-local function transformBackward(number, numDecimalPlaces)
-    local mult = 10^(numDecimalPlaces or 0)
-    return number / mult
 end
 
 --- Handles a numeric value
@@ -97,12 +98,36 @@ function Numeric:Serialize(data, binaryBuffer)
         return
     end
 
-    BinaryBuffer.Write(binaryBuffer, transformForward(data, self.precision), self.bitLength)
+    binaryBuffer:Write(data, self.bitLength)
 end
 
 function Numeric:Unserialize(binaryBuffer)
     -- TODO: length check
-    return transformBackward(BinaryBuffer.Read(binaryBuffer, self.bitLength), self.precision)
+    return binaryBuffer:Read(self.bitLength)
+end
+
+local function transformForward(number, mult)
+    return floor(number * mult + 0.5)
+end
+
+--- Handles a numeric value
+--- @param data number The numeric data to handle
+--- @return string|nil The binary string representation, or nil on error
+function NumericWithPrecision:Serialize(data, binaryBuffer)
+    if not assert(type(data) == 'number', ('Value must be a number, got %s: %s'):format(type(data), tostring(data))) then
+        return
+    end
+
+    binaryBuffer:Write(transformForward(data, self.mult), self.bitLength)
+end
+
+local function transformBackward(number, mult)
+    return number / mult
+end
+
+function NumericWithPrecision:Unserialize(binaryBuffer)
+    -- TODO: length check
+    return transformBackward(binaryBuffer:Read(self.bitLength), self.mult)
 end
 
 -- ----------------------------------------------------------------------------
@@ -299,7 +324,7 @@ function Boolean:Serialize(data, binaryBuffer)
         return
     end
 
-    BinaryBuffer.WriteBit(binaryBuffer, data and 1 or 0)
+    binaryBuffer:WriteBit(data and 1 or 0)
 end
 
 function Boolean:Unserialize(dataBuffer)
@@ -339,7 +364,7 @@ function String:Serialize(data, binaryBuffer)
 
     for i = 1, #data do
         local byte = data:byte(i)
-        BinaryBuffer.Write(binaryBuffer, byte, 8)
+        binaryBuffer:Write(byte, 8)
     end
 end
 
@@ -349,7 +374,7 @@ function String:Unserialize(dataBuffer)
     local bytesRead = 0
     local tempTable, i = {}, 1
     while bytesRead < bytesTotal do
-        local firstByte = BinaryBuffer.Read(dataBuffer, 8)
+        local firstByte = dataBuffer:Read(8)
 
         local numBytes = 1
         if firstByte >= 0xC0 and firstByte < 0xE0 then
@@ -362,7 +387,7 @@ function String:Unserialize(dataBuffer)
 
         local bytes = {firstByte}
         for j = 2, numBytes do
-            bytes[j] = BinaryBuffer.Read(dataBuffer, 8)
+            bytes[j] = dataBuffer:Read(8)
         end
 
         tempTable[i] = string.char(unpack(bytes))

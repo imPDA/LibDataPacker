@@ -50,12 +50,12 @@ end
 
 function Base:Encode(binaryBuffer)
     local tempTable = {}
-    BinaryBuffer.Seek(binaryBuffer, 0)
+    binaryBuffer:Seek(0)
 
     local decimal
     local i = 1
-    while BinaryBuffer.Available(binaryBuffer) do
-        decimal = BinaryBuffer.Read(binaryBuffer, self.bitLength)
+    while binaryBuffer:Available() do
+        decimal = binaryBuffer:Read(self.bitLength)
         tempTable[i] = self.alphabet[decimal+1]
         i = i + 1
     end
@@ -68,9 +68,9 @@ function Base:Decode(encodedString)
 
     local charsArray = { encodedString:byte(1, #encodedString) }
     for i = 1, #charsArray do
-        BinaryBuffer.WriteBits(binaryBuffer, self.lookupTable[charsArray[i]])
+        binaryBuffer:WriteBits(self.lookupTable[charsArray[i]])
     end
-    BinaryBuffer.Seek(binaryBuffer, 0)
+    binaryBuffer:Seek(0)
 
     return binaryBuffer
 end
@@ -82,12 +82,12 @@ local Base64LinkSafe = Base.FromAlphabet('23456789CFGHJMPQRVWXcfghjmpqrvwx01bBdD
 
 -- ----------------------------------------------------------------------------
 
-local Base256LibBinaryEncode = LBE and {
-    Encode = LBE.Encode,
-    Decode = LBE.DecodeToString,
-} or {
-    __index = error('LibBinaryEncode is missing!')
-}
+-- local Base256LibBinaryEncode = LBE and {
+--     Encode = LBE.Encode,
+--     Decode = LBE.DecodeToString,
+-- } or {
+--     __index = error('LibBinaryEncode is missing!')
+-- }
 
 -- ----------------------------------------------------------------------------
 --[[
@@ -146,7 +146,7 @@ LDP.Base = {
     CustomAlphabet = Base.FromAlphabet,
     Base64RCF4648 = Base64RCF4648,
     Base64LinkSafe = Base64LinkSafe,
-    Base256LibBinaryEncode = Base256LibBinaryEncode,
+    -- Base256LibBinaryEncode = Base256LibBinaryEncode,
     -- Base128Primitive = Base128Primitive,
     -- Base256Primitive = Base256Primitive,
 }

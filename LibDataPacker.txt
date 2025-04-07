@@ -12,11 +12,10 @@ binarybuffer.lua
 main.lua
 bases.lua
 
-examples/superstar.lua
-examples/coordinates.lua
-examples/string.lua
-examples/common.lua
-examples/enum.lua
-examples/ww.lua
-examples/primitivebases.lua
-examples/unittests.lua
+; examples/superstar.lua
+; examples/coordinates.lua
+; examples/string.lua
+; examples/common.lua
+; examples/enum.lua
+; examples/ww.lua
+; examples/primitivebases.lua
