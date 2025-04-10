@@ -59,25 +59,25 @@ local DATA_MAP = {
         binarySize = 2,
     },
     {  -- 2
+    name = 'ava rank',
+    callback = function()
+        return GetUnitAvARank('player')
+    end,
+    binarySize = 3,
+    },
+    {  -- 3
         name = 'race',
         callback = function()
             return GetUnitRaceId('player')
         end,
         binarySize = 3,
     },
-    {  -- 3
+    {  -- 4
         name = 'class',
         callback = function()
             local class = GetUnitClassId('player')
             -- return class == 117 and 7 or class
             return class
-        end,
-        binarySize = 3,
-    },
-    {  -- 4
-        name = 'ava rank',
-        callback = function()
-            return GetUnitAvARank('player')
         end,
         binarySize = 3,
     },
@@ -95,14 +95,14 @@ local DATA_MAP = {
         end,
         -- binarySize = 12,
     },
-    {  -- 6
+    {  -- 7
         name = 'cp',
         callback = function()
             return GetUnitChampionPoints('player')
         end,
         -- binarySize = 12,
     },
-    {  -- 7
+    {  -- 8
         name = 'skills',
         callback = function(category, slot)
             return GetSlotBoundId(slot, category)  -- 2^20 - 1 = 1048575
@@ -110,7 +110,7 @@ local DATA_MAP = {
         args = {{HOTBAR_CATEGORY_PRIMARY, HOTBAR_CATEGORY_BACKUP}, {3, 4, 5, 6, 7, 8}},
         binarySize = 20,
     },
-    {  -- 8
+    {  -- 9
         name = 'mundus1',
         callback = function(index)
             local numBuffs = GetNumBuffs('player')
@@ -129,7 +129,7 @@ local DATA_MAP = {
         args = {1},
         binarySize = 4,
     },
-    {  -- 8
+    {  -- 10
         name = 'mundus2',
         callback = function(index)
             local numBuffs = GetNumBuffs('player')
@@ -148,7 +148,7 @@ local DATA_MAP = {
         args = {2},
         binarySize = 4,
     },
-    {  -- 9
+    {  -- 11
         name = 'vampire/ww',
         callback = function()
             local numBuffs = GetNumBuffs('player')
@@ -163,7 +163,7 @@ local DATA_MAP = {
         end,
         binarySize = 3,
     },
-    {  -- 10
+    {  -- 12
         name = 'attributes',
         callback = function(attribute)
             return GetAttributeSpentPoints(attribute)
@@ -171,7 +171,7 @@ local DATA_MAP = {
         args = {{ATTRIBUTE_HEALTH, ATTRIBUTE_MAGICKA, ATTRIBUTE_STAMINA}},
         binarySize = 7,
     },
-    {  -- 11
+    {  -- 13
         name = 'max resources',
         callback = function(resourceType)
             return GetPlayerStat(resourceType)
@@ -179,7 +179,7 @@ local DATA_MAP = {
         args = {{STAT_HEALTH_MAX, STAT_MAGICKA_MAX, STAT_STAMINA_MAX}},
         binarySize = 16,
     },
-    {  -- 12
+    {  -- 14
         name = 'regens',
         callback = function(resourceType)
             return GetPlayerStat(resourceType)
@@ -187,7 +187,7 @@ local DATA_MAP = {
         args = {{STAT_HEALTH_REGEN_COMBAT, STAT_MAGICKA_REGEN_COMBAT, STAT_STAMINA_REGEN_COMBAT}},
         binarySize = 14,
     },
-    {  -- 13
+    {  -- 15
         name = 'wpd/spd',
         callback = function(type)
             return GetPlayerStat(type)
@@ -195,7 +195,7 @@ local DATA_MAP = {
         args = {{STAT_SPELL_POWER, STAT_POWER}},
         binarySize = 14,
     },
-    {  -- 14
+    {  -- 16
         name = 'wpd/spd critrate',
         callback = function(type)
             return GetPlayerStat(type)
@@ -203,7 +203,7 @@ local DATA_MAP = {
         args = {{STAT_SPELL_CRITICAL, STAT_CRITICAL_STRIKE}},
         binarySize = 15,
     },
-    {  -- 15
+    {  -- 17
         name = 'penetrations',
         callback = function(type)
             return GetPlayerStat(type)
@@ -211,7 +211,7 @@ local DATA_MAP = {
         args = {{STAT_SPELL_PENETRATION, STAT_PHYSICAL_PENETRATION}},
         binarySize = 16,
     },
-    {  -- 16
+    {  -- 18
         name = 'resistances',
         callback = function(type)
             return GetPlayerStat(type)
@@ -219,7 +219,7 @@ local DATA_MAP = {
         args = {{STAT_SPELL_RESIST, STAT_PHYSICAL_RESIST}},
         binarySize = 17,
     },
-    {  -- 17
+    {  -- 19
         name = 'gear',
         callback = function(slot)
             local itemLink = GetItemLink(BAG_WORN, slot)
@@ -253,7 +253,7 @@ local DATA_MAP = {
         }},
         binarySize = {20, 3, 6, 20},
     },
-    {  -- 18
+    {  -- 20
         name = 'champion star',
         callback = function(slot)
             return GetSlotBoundId(slot, HOTBAR_CATEGORY_CHAMPION)
