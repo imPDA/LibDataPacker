@@ -1,26 +1,53 @@
---#region PREPARATIONS
-local MUNDUS_BOONS = {
-    [13940] = 1, -- Boon: The Warrior
-    [13943] = 2, -- Boon: The Mage
-    [13974] = 3, -- Boon: The Serpent
-    [13975] = 4, -- Boon: The Thief
-    [13976] = 5, -- Boon: The Lady
-    [13977] = 6, -- Boon: The Steed
-    [13978] = 7, -- Boon: The Lord
-    [13979] = 8, -- Boon: The Apprentice
-    [13980] = 9, -- Boon: The Ritual
-    [13981] = 10, -- Boon: The Lover
-    [13982] = 11, -- Boon: The Atronach
-    [13984] = 12, -- Boon: The Shadow
-    [13985] = 13 -- Boon: The Tower
+local CLASSES_LOOKUP_TABLE = {
+    1, 2, 3, 4, 5, 6, 117
 }
 
-local VAMPIREWW = {
-    [35658] = 5, -- Lycantropy
-    [135397] = 1, -- Vampirism: Stage 1
-    [135399] = 2, -- Vampirism: Stage 2
-    [135400] = 3, -- Vampirism: Stage 3
-    [135402] = 4 -- Vampirism: Stage 4
+local RACES_LOOKUP_TABLE = {
+    1,  -- Breton
+    2,  -- Redguard
+    3,  -- Orc
+    4,  -- Dark Elf
+    5,  -- Nord
+    6,  -- Argonian
+    7,  -- High Elf
+    8,  -- Wood Elf
+    9,  -- Khajiit
+    10, -- Imperial
+    -- 29,  -- Xivilai
+}
+
+--#region PREPARATIONS
+local MUNDUS_BOONS_ENUM = {
+    [13940] = 1,    -- Boon: The Warrior
+    [13943] = 2,    -- Boon: The Mage
+    [13974] = 3,    -- Boon: The Serpent
+    [13975] = 4,    -- Boon: The Thief
+    [13976] = 5,    -- Boon: The Lady
+    [13977] = 6,    -- Boon: The Steed
+    [13978] = 7,    -- Boon: The Lord
+    [13979] = 8,    -- Boon: The Apprentice
+    [13980] = 9,    -- Boon: The Ritual
+    [13981] = 10,   -- Boon: The Lover
+    [13982] = 11,   -- Boon: The Atronach
+    [13984] = 12,   -- Boon: The Shadow
+    [13985] = 13,   -- Boon: The Tower
+}
+
+local VAMPIRE_OR_WW_ENUM = {
+    [135397] = 1,   -- Vampirism: Stage 1
+    [135399] = 2,   -- Vampirism: Stage 2
+    [135400] = 3,   -- Vampirism: Stage 3
+    [135402] = 4,   -- Vampirism: Stage 4
+    [35658] = 5,    -- Lycantropy
+}
+
+local CHAMPION_SLOTTABLE_SKILLS_LOOKUP_TABLE = {
+    0,  -- no CP star slotted
+    2,  3,  4,  5,  8,  9,  12, 13, 23, 24, 25, 26, 27, 28, 29, 30,
+    31, 32, 33, 34, 35, 46, 47, 48, 49, 51, 52, 54, 55, 56, 57, 59,
+    60, 61, 62, 63, 64, 65, 66, 76, 78, 80, 82, 84, 88, 89, 92, 133,
+    134,136,159,160,161,162,163,259,260,261,262,263,264,265,266,267,
+    268,270,271,272,273,274,275,276,277,
 }
 
 local DATA_MAP = {
@@ -34,7 +61,7 @@ local DATA_MAP = {
     {  -- 2
         name = 'race',
         callback = function()
-            return GetUnitAlliance('player')
+            return GetUnitRace('player')
         end,
         binarySize = 3,
     },
@@ -42,7 +69,8 @@ local DATA_MAP = {
         name = 'class',
         callback = function()
             local class = GetUnitClassId('player')
-            return class == 117 and 7 or class
+            -- return class == 117 and 7 or class
+            return class
         end,
         binarySize = 3,
     },
@@ -53,19 +81,26 @@ local DATA_MAP = {
         end,
         binarySize = 3,
     },
-    {  -- 5
-        name = 'available skill points',
+    -- {  -- 5
+    --     name = 'available skill points',
+    --     callback = function()
+    --         return GetAvailableSkillPoints()
+    --     end,
+    --     binarySize = 10,
+    -- },
+    {  -- 6
+        name = 'level',
         callback = function()
-            return GetAvailableSkillPoints()
+            return GetUnitLevel('player')
         end,
-        binarySize = 10,
+        -- binarySize = 12,
     },
     {  -- 6
-        name = 'level/cp',
+        name = 'cp',
         callback = function()
-            return GetUnitChampionPoints('player') + GetUnitLevel('player')
+            return GetUnitChampionPoints('player')
         end,
-        binarySize = 12,
+        -- binarySize = 12,
     },
     {  -- 7
         name = 'skills',
@@ -76,7 +111,7 @@ local DATA_MAP = {
         binarySize = 20,
     },
     {  -- 8
-        name = 'munduses',
+        name = 'mundus1',
         callback = function(index)
             local numBuffs = GetNumBuffs('player')
             if numBuffs == 0 then return end
@@ -84,14 +119,33 @@ local DATA_MAP = {
             local munduses = {}
             for i = 1, numBuffs do
                 local _, _, _, _, _, _, _, _, _, _, abilityId = GetUnitBuffInfo('player', i)
-                if MUNDUS_BOONS[abilityId] then
-                    table.insert(munduses, MUNDUS_BOONS[abilityId])
+                if MUNDUS_BOONS_ENUM[abilityId] then
+                    table.insert(munduses, abilityId)
                 end
             end
 
-            return munduses[index] or 0
+            return munduses[index]
         end,
-        args = {{1, 2}},
+        args = {1},
+        binarySize = 4,
+    },
+    {  -- 8
+        name = 'mundus2',
+        callback = function(index)
+            local numBuffs = GetNumBuffs('player')
+            if numBuffs == 0 then return end
+
+            local munduses = {}
+            for i = 1, numBuffs do
+                local _, _, _, _, _, _, _, _, _, _, abilityId = GetUnitBuffInfo('player', i)
+                if MUNDUS_BOONS_ENUM[abilityId] then
+                    table.insert(munduses, abilityId)
+                end
+            end
+
+            return munduses[index]
+        end,
+        args = {2},
         binarySize = 4,
     },
     {  -- 9
@@ -102,12 +156,10 @@ local DATA_MAP = {
 
             for i = 1, numBuffs do
                 local _, _, _, _, _, _, _, _, _, _, abilityId = GetUnitBuffInfo('player', i)
-                if VAMPIREWW[abilityId] then
-                    return VAMPIREWW[abilityId]
+                if VAMPIRE_OR_WW_ENUM[abilityId] then
+                    return abilityId
                 end
             end
-
-            return 0
         end,
         binarySize = 3,
     },
@@ -247,8 +299,9 @@ end
 local function collectData()
     local data = {}
 
-    for _, dataPiece in ipairs(DATA_MAP) do
-        table.insert(data, call(dataPiece.callback, dataPiece.args, 1))
+    for i = 1, 19 do
+        local dataPiece = DATA_MAP[i]
+        data[i] = call(dataPiece.callback, dataPiece.args, 1)
     end
 
     return data
@@ -292,6 +345,16 @@ end
 
 -- ----------------------------------------------------------------------------
 
+-- 2^10-1 =         1.023
+-- 2^12-1 =         4.095
+-- 2^14-1 =        16.383
+-- 2^15-1 =        32.767
+-- 2^16-1 =        65.535
+-- 2^17-1 =       131.071
+-- 2^20-1 =     1.048.575
+
+-- ----------------------------------------------------------------------------
+
 local LDP = LibDataPacker
 LDP.examples = LDP.examples or {}
 LDP.examples.SuperStar = {}
@@ -304,35 +367,47 @@ local function superstarExample()
     local IGNORE_NAMES = true
 
     local item = Field.Table('item', {
-        Field.Number('id',          20),
-        Field.Number('quality',     3),
-        Field.Number('trait',       6),
-        Field.Number('ench. id',    20),
+        Field.Number('id',              20),
+        Field.Number('quality',         3),
+        Field.Number('trait',           6),
+        Field.Number('enchantmentId',   20),
     }, IGNORE_NAMES)
 
     local superStarDataSchema = Field.Table(nil, {
         Field.Number('alliance',        2),
+        Field.Number('avaRank',         6),
+
         Field.Number('race',            3),
-        Field.Number('class',           3),
-        Field.Number('ava rank',        6),
-        Field.Number('skill points',    10),
-        Field.Number('level, cp',       12),
+        Field.Enum('class', CLASSES_LOOKUP_TABLE, true),
 
-        Field.Array('skills',       12, Field.Number(nil, 20)),
-        Field.Array('boons',        2,  Field.Number(nil, 4)),
+        -- Field.Number('skillPoints',     10),
 
-        Field.Number('vampire/ww',      3),
+        Field.Number('level', 6),
+        Field.Number('CP', 12),
 
+        Field.Array('skills', 12, Field.Number(nil, 20)),
+
+        Field.Optional(Field.Enum('mundus1', MUNDUS_BOONS_ENUM)),
+        Field.Optional(Field.Enum('mundus2', MUNDUS_BOONS_ENUM)),
+
+        Field.Optional(Field.Enum('vampireOrWW', VAMPIRE_OR_WW_ENUM)),
+
+        -- HP / magica / stamina
         Field.Array('attributes',   3,  Field.Number(nil, 7)),
         Field.Array('resources',    3,  Field.Number(nil, 16)),
         Field.Array('regens',       3,  Field.Number(nil, 14)),
+
         Field.Array('wpd/spd',      2,  Field.Number(nil, 14)),
         Field.Array('critrate',     2,  Field.Number(nil, 15)),
         Field.Array('penetration',  2,  Field.Number(nil, 16)),
         Field.Array('resistance',   2,  Field.Number(nil, 17)),
-        Field.Array('gear',         14, item),
-        Field.Array('CP stars',     12, Field.Number(nil, 14)),
+
+        Field.Array('gear', 14, item),
+
+        Field.Array('stars', 12, Field.Enum(nil, CHAMPION_SLOTTABLE_SKILLS_LOOKUP_TABLE, true)),
     }, IGNORE_NAMES)
+
+-- ------------------------------------------------------------------------
 
     local data = collectData()
     example.data = data
@@ -356,3 +431,7 @@ local function superstarExample()
 end
 
 example.run = superstarExample
+
+do
+    zo_callLater(example.run, 1000)
+end
