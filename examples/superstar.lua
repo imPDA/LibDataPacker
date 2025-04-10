@@ -61,7 +61,7 @@ local DATA_MAP = {
     {  -- 2
         name = 'race',
         callback = function()
-            return GetUnitRace('player')
+            return GetUnitRaceId('player')
         end,
         binarySize = 3,
     },
