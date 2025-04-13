@@ -102,8 +102,8 @@ end
 --- @param data number The numeric data to handle
 --- @return string|nil The binary string representation, or nil on error
 function Numeric:Serialize(data, binaryBuffer)
-    if not assert(type(data) == 'number', ('Value must be a number, got %s: %s'):format(type(data), tostring(data))) then
-        return
+    if type(data) ~= 'number' then
+        error(('Value must be a number, got %s: %s'):format(type(data), tostring(data)))
     end
 
     binaryBuffer:Write(data, self.bitLength)
@@ -126,8 +126,8 @@ end
 --- @param data number The numeric data to handle
 --- @return string|nil The binary string representation, or nil on error
 function NumericWithPrecision:Serialize(data, binaryBuffer)
-    if not assert(type(data) == 'number', ('Value must be a number, got %s: %s'):format(type(data), tostring(data))) then
-        return
+    if type(data) ~= 'number' then
+        error(('Value must be a number, got %s: %s'):format(type(data), tostring(data)))
     end
 
     binaryBuffer:Write(transformForward(data, self.mult), self.bitLength)
@@ -173,9 +173,7 @@ end
 --- @param data table The array data to handle
 --- @return string|nil The binary string representation, or nil on error
 function Array:Serialize(data, binaryBuffer)
-    if not assert(type(data) == 'table', 'Value must be a table.') then
-        return
-    end
+    if type(data) ~= 'table' then error('Value must be a table') end
 
     for _, datum in ipairs(data) do
         self.subType:Serialize(datum, binaryBuffer)
@@ -228,9 +226,7 @@ end
 --- @param data table The array data to handle
 --- @return string|nil The binary string representation, or nil on error
 function VLArray:Serialize(data, binaryBuffer)
-    if not assert(type(data) == 'table', 'Value must be a table.') then
-        return
-    end
+    if type(data) ~= 'table' then error('Value must be a table') end
 
     self.length:Serialize(#data, binaryBuffer)
 
@@ -284,11 +280,7 @@ end
 --- @param data table The table data to handle
 --- @return string|nil @The binary string representation, or nil on error
 function Table:Serialize(data, binaryBuffer)
-    -- local result = ''
-
-    if not assert(type(data) == 'table', 'Value must be a table.') then
-        return
-    end
+    if type(data) ~= 'table' then error('Value must be a table') end
 
     local datum
     for i, field in ipairs(self.fields) do
@@ -299,8 +291,6 @@ function Table:Serialize(data, binaryBuffer)
         end
         field:Serialize(datum, binaryBuffer)
     end
-
-    -- return result
 end
 
 function Table:Unserialize(dataBuffer)
@@ -353,10 +343,7 @@ end
 --- @param data boolean The boolean data to handle
 --- @return string|nil The binary string representation, or nil on error
 function Boolean:Serialize(data, binaryBuffer)
-    -- Log('data: %s', tostring(data))
-    if not assert(type(data) == 'boolean', 'Value must be a boolean.') then
-        return
-    end
+    if type(data) ~= 'boolean' then error('Value must be a boolean') end
 
     binaryBuffer:WriteBit(data and 1 or 0)
 end
@@ -373,7 +360,6 @@ end
 
 --- @class String : Field
 --- @field __index String
--- @field fullBitLength integer The full bit length of boolean field
 local String = setmetatable({}, { __index = Field })
 String.__index = String
 
@@ -394,9 +380,7 @@ end
 --- @param data string The string data to handle
 --- @return string|nil The binary string representation, or nil on error
 function String:Serialize(data, binaryBuffer)
-    if not assert(type(data) == 'string', 'Value must be a string.') then
-        return
-    end
+    if type(data) ~= 'string' then error('Value must be a string') end
 
     self.length:Serialize(#data, binaryBuffer)
 
@@ -542,77 +526,6 @@ end
 function Optional:GetMaxBitLength()
     return self.subfield:GetMaxBitLength() + 1
 end
-
--- ----------------------------------------------------------------------------
-
---[[
---- @class EnumDecorator
---- @field __index EnumDecorator
-local EnumDecorator = {}
-EnumDecorator.__index = EnumDecorator
-
---- Creates a new Enum field
---- @param enumTable table Lookup table
---- @return EnumDecorator @The new Enum field
-function EnumDecorator.New(enumTable, inverted)
-    --- @class (partial) EnumDecorator
-    local o = setmetatable({}, EnumDecorator)
-
-    o.forward = enumTable
-
-    o.backward = {}
-    for k, v in pairs(enumTable) do
-        o.backward[v] = k
-    end
-
-    if inverted then
-        o.forward, o.backward = o.backward, o.forward
-    end
-
-    return o
-end
-
---- Handles a enum value
---- @param field Field The field to decorate
---- @return Field @Decorated field
-function EnumDecorator.__call(self, field)
-    Log('Serializing Enum')
-    if field.fieldType == TABLE then
-        Log('Table, skipping')
-        return field
-    end
-
-    local originalSerialize = field.Serialize
-    field.Serialize = function(_self, data)
-        Log('Data: %s', table.concat(data, ', '))
-        local newData = {}
-        for k, v in pairs(data) do
-            newData[k] = self.forward[v]
-        end
-        Log('New data: %s', table.concat(newData, ', '))
-
-        Log('Original field type: %s', field.fieldType)
-        local result = originalSerialize(_self, newData)
-        Log('Result: %s', tostring(result))
-
-        return result
-    end
-
-    local originalUnserialize = field.Unserialize
-    field.Unserialize = function(_self, data)
-        local originalReturn = originalUnserialize(_self, data)
-
-        local newReturn = {}
-        for k, v in pairs(originalReturn) do
-            newReturn[k] = self.backward[v]
-        end
-
-        return newReturn
-    end
-
-    return field
-end
-]]
 
 -- ----------------------------------------------------------------------------
 

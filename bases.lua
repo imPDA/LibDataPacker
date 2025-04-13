@@ -13,7 +13,7 @@ local function decimalToBinaryArray(decimal, length)
     local array = {}
     for i = 1, length do
         array[i] = decimal % 2
-        decimal = math.floor(decimal / 2)
+        decimal = floor(decimal / 2)
     end
 
     return array
@@ -68,7 +68,7 @@ function Base:Decode(encodedString)
 
     local charsArray = { encodedString:byte(1, #encodedString) }
     for i = 1, #charsArray do
-        binaryBuffer:WriteBits(self.lookupTable[charsArray[i]])
+        binaryBuffer:WriteBits(self.lookupTable[charsArray[i]], self.bitLength)
     end
     binaryBuffer:Seek(0)
 

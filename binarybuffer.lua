@@ -45,12 +45,12 @@ function BinaryBuffer:WriteBit(bit)
     self[self.pointer] = bit
 end
 
-function BinaryBuffer:WriteBits(bits)
-    for i = 1, #bits do
+function BinaryBuffer:WriteBits(bits, length)
+    for i = 1, length do
         self[self.pointer+i] = bits[i]
     end
 
-    self.pointer = self.pointer + #bits
+    self.pointer = self.pointer + length
 end
 
 function BinaryBuffer:Available()
