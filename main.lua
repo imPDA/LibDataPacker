@@ -12,6 +12,10 @@ local function maxBitLengthFor(number)
     return ceil(log(number + 1) / log(2))
 end
 
+local function getMaxValueForBitLength(number)
+    return 2^number - 1
+end
+
 -- ----------------------------------------------------------------------------
 
 local EMPTY = 0
@@ -52,6 +56,10 @@ function Field:Serialize(data, buffer)
 end
 
 function Field:Unserialize(data)
+    assert(false, 'Must be overridden')
+end
+
+function Field:GetMaxBitLength()
     assert(false, 'Must be overridden')
 end
 
@@ -106,6 +114,10 @@ function Numeric:Unserialize(binaryBuffer)
     return binaryBuffer:Read(self.bitLength)
 end
 
+function Numeric:GetMaxBitLength()
+    return self.bitLength
+end
+
 local function transformForward(number, mult)
     return floor(number * mult + 0.5)
 end
@@ -129,6 +141,9 @@ function NumericWithPrecision:Unserialize(binaryBuffer)
     -- TODO: length check
     return transformBackward(binaryBuffer:Read(self.bitLength), self.mult)
 end
+
+-- TODO: inherit from Numeric then?
+NumericWithPrecision.GetMaxBitLength = Numeric.GetMaxBitLength
 
 -- ----------------------------------------------------------------------------
 
@@ -179,11 +194,15 @@ function Array:Unserialize(dataBuffer)
     return result
 end
 
+function Array:GetMaxBitLength()
+    return self.length * self.subType:GetMaxBitLength()
+end
+
 -- ----------------------------------------------------------------------------
 
 --- @class VLArray : Field
 --- @field __index VLArray
---- @field maxLength integer The array max length
+--- @field length Numeric The array max length
 --- @field subType Field The field type for array elements
 local VLArray = setmetatable({}, { __index = Field })
 VLArray.__index = VLArray
@@ -232,6 +251,11 @@ function VLArray:Unserialize(binaryBuffer)
     end
 
     return result
+end
+
+function VLArray:GetMaxBitLength()
+    local lenghtMaxBitLength = self.length:GetMaxBitLength()
+    return lenghtMaxBitLength + getMaxValueForBitLength(lenghtMaxBitLength) * self.subType:GetMaxBitLength()
 end
 
 -- ----------------------------------------------------------------------------
@@ -298,6 +322,16 @@ function Table:Unserialize(dataBuffer)
     return result
 end
 
+function Table:GetMaxBitLength()
+    local totalBitLength = 0
+
+    for i = 1, #self.fields do
+        totalBitLength = totalBitLength + self.fields[i]:GetMaxBitLength()
+    end
+
+    return totalBitLength
+end
+
 -- ----------------------------------------------------------------------------
 
 --- @class Boolean : Field
@@ -329,6 +363,10 @@ end
 
 function Boolean:Unserialize(dataBuffer)
     return dataBuffer:Read(1) == 1
+end
+
+function Boolean:GetMaxBitLength()
+    return 1
 end
 
 -- ----------------------------------------------------------------------------
@@ -398,6 +436,11 @@ function String:Unserialize(dataBuffer)
     return table.concat(tempTable)
 end
 
+function String:GetMaxBitLength()
+    local lenghtMaxBitLength = self.length:GetMaxBitLength()
+    return lenghtMaxBitLength + getMaxValueForBitLength(lenghtMaxBitLength) * 8
+end
+
 -- ----------------------------------------------------------------------------
 
 --- @class Enum : Field
@@ -455,6 +498,10 @@ function Enum:Unserialize(dataBuffer)
     return newResult
 end
 
+function Enum:GetMaxBitLength()
+    return self.subType:GetMaxBitLength()
+end
+
 -- ----------------------------------------------------------------------------
 
 --- @class Optional : Field
@@ -490,6 +537,10 @@ function Optional:Unserialize(dataBuffer)
     if dataBuffer:Read(1) == 0 then return end
 
     return self.subfield:Unserialize(dataBuffer)
+end
+
+function Optional:GetMaxBitLength()
+    return self.subfield:GetMaxBitLength() + 1
 end
 
 -- ----------------------------------------------------------------------------
@@ -565,6 +616,8 @@ end
 
 -- ----------------------------------------------------------------------------
 
+lib.BaseField = Field
+
 lib.Field = {
     Number = Numeric.New,
     Array = Array.New,
@@ -574,6 +627,12 @@ lib.Field = {
     String = String.New,
     Enum = Enum.New,
     Optional = Optional.New,
+}
+
+lib.Diagnostics = {
+    MaxLength = function(schema, base)
+        return ceil(schema:GetMaxBitLength() / base.bitLength)
+    end,
 }
 
 function lib.Pack(data, schema, base)
