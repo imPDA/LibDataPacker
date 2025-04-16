@@ -55,11 +55,15 @@ function Field:Serialize(data, buffer)
     assert(false, 'Must be overridden')
 end
 
-function Field:Unserialize(data)
+function Field:Unserialize(buffer)
     assert(false, 'Must be overridden')
 end
 
 function Field:GetMaxBitLength()
+    assert(false, 'Must be overridden')
+end
+
+function Field:Skip(buffer)
     assert(false, 'Must be overridden')
 end
 
@@ -114,6 +118,10 @@ function Numeric:Unserialize(binaryBuffer)
     return binaryBuffer:Read(self.bitLength)
 end
 
+function Numeric:Skip(binaryBuffer)
+    binaryBuffer:Skip(self.bitLength)
+end
+
 function Numeric:GetMaxBitLength()
     return self.bitLength
 end
@@ -144,6 +152,7 @@ end
 
 -- TODO: inherit from Numeric then?
 NumericWithPrecision.GetMaxBitLength = Numeric.GetMaxBitLength
+NumericWithPrecision.Skip = Numeric.Skip
 
 -- ----------------------------------------------------------------------------
 
@@ -192,6 +201,12 @@ function Array:Unserialize(dataBuffer)
     return result
 end
 
+function Array:Skip(binaryBuffer)
+    for _ = 1, self.length do
+        self.subType:Skip(binaryBuffer)
+    end
+end
+
 function Array:GetMaxBitLength()
     return self.length * self.subType:GetMaxBitLength()
 end
@@ -215,7 +230,7 @@ function VLArray.New(name, maxLength, subtype)
     local o = setmetatable(Field.New(name, VARIABLE_LENGTH_ARRAY), VLArray)
 
     local bitLength = maxBitLengthFor(maxLength)
-    o.length = Numeric.New(nil, bitLength)
+    o.length = Numeric.New(nil, bitLength) --[[@as Numeric]]
 
     o.subType = subtype
 
@@ -247,6 +262,14 @@ function VLArray:Unserialize(binaryBuffer)
     end
 
     return result
+end
+
+function VLArray:Skip(binaryBuffer)
+    local length = self.length:Unserialize(binaryBuffer)
+
+    for _ = 1, length do
+        self.subType:Skip(binaryBuffer)
+    end
 end
 
 function VLArray:GetMaxBitLength()
@@ -282,34 +305,45 @@ end
 function Table:Serialize(data, binaryBuffer)
     if type(data) ~= 'table' then error('Value must be a table') end
 
-    local datum
-    for i, field in ipairs(self.fields) do
-        if self.ignoreNames then
-            datum = data[i]
-        else
-            datum = data[field.name]
+    if self.ignoreNames then
+        for i = 1, #self.fields do
+            local field = self.fields[i]
+            local datum = data[i]
+            field:Serialize(datum, binaryBuffer)
         end
-        field:Serialize(datum, binaryBuffer)
+    else
+        for i = 1, #self.fields do
+            local field = self.fields[i]
+            local datum = data[field.name]
+            field:Serialize(datum, binaryBuffer)
+        end
     end
 end
 
 function Table:Unserialize(dataBuffer)
     local result = {}
 
-    local field, unserializedData
+    local l = 1
     for i = 1, #self.fields do
-        field = self.fields[i]
+        local field = self.fields[i]
 
-        unserializedData = field:Unserialize(dataBuffer)
+        local unserializedData = field:Unserialize(dataBuffer)
 
-        if not field.name or self.ignoreNames then
-            table.insert(result, unserializedData)
+        if self.ignoreNames or not field.name then
+            result[l] = unserializedData
+            l = l + 1
         else
             result[field.name] = unserializedData
         end
     end
 
     return result
+end
+
+function Table:Skip(binaryBuffer)
+    for i = 1, #self.fields do
+        self.fields[i]:Skip(binaryBuffer)
+    end
 end
 
 function Table:GetMaxBitLength()
@@ -352,6 +386,10 @@ function Boolean:Unserialize(dataBuffer)
     return dataBuffer:Read(1) == 1
 end
 
+function Boolean:Skip(binaryBuffer)
+    binaryBuffer:Skip(1)
+end
+
 function Boolean:GetMaxBitLength()
     return 1
 end
@@ -371,7 +409,7 @@ function String.New(name, maxLength)
     local o = setmetatable(Field.New(name, STRING), String)
 
     local lengthBits = maxBitLengthFor(maxLength)
-    o.length = Numeric.New(nil, lengthBits)
+    o.length = Numeric.New(nil, lengthBits) --[[@as Numeric]]
 
     return o
 end
@@ -420,6 +458,11 @@ function String:Unserialize(dataBuffer)
     return table.concat(tempTable)
 end
 
+function String:Skip(binaryBuffer)
+    local bytesTotal = self.length:Unserialize(binaryBuffer)
+    binaryBuffer:Skip(bytesTotal * 8)
+end
+
 function String:GetMaxBitLength()
     local lenghtMaxBitLength = self.length:GetMaxBitLength()
     return lenghtMaxBitLength + getMaxValueForBitLength(lenghtMaxBitLength) * 8
@@ -453,7 +496,7 @@ function Enum.New(name, enumTable, inverted)
     end
 
     local bitLength = maxBitLengthFor(#o.backward)
-    o.subType = Numeric.New(nil, bitLength)
+    o.subType = Numeric.New(nil, bitLength) --[[@as Numeric]]
 
     return o
 end
@@ -480,6 +523,10 @@ function Enum:Unserialize(dataBuffer)
     end
 
     return newResult
+end
+
+function Enum:Skip(binaryBuffer)
+    self.subType:Skip(binaryBuffer)
 end
 
 function Enum:GetMaxBitLength()
@@ -523,6 +570,12 @@ function Optional:Unserialize(dataBuffer)
     return self.subfield:Unserialize(dataBuffer)
 end
 
+function Optional:Skip(binaryBuffer)
+    if binaryBuffer:Read(1) == 0 then return end
+
+    self.subfield:Skip(binaryBuffer)
+end
+
 function Optional:GetMaxBitLength()
     return self.subfield:GetMaxBitLength() + 1
 end
@@ -551,7 +604,7 @@ lib.Diagnostics = {
 function lib.Pack(data, schema, base)
     base = base or lib.Base.Base64RCF4648
 
-    local binaryBuffer = BinaryBuffer.New()
+    local binaryBuffer = BinaryBuffer.New(nil, base.bitLength)
     schema:Serialize(data, binaryBuffer)
 
     return base:Encode(binaryBuffer)

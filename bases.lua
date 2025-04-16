@@ -5,22 +5,6 @@ local log = math.log
 
 -- ----------------------------------------------------------------------------
 
-local function decimalToBinaryArray(decimal, length)
-    if 2^length-1 < decimal then
-        error(('%d cant be written to buffer with length %d'):format(decimal, length))
-    end
-
-    local array = {}
-    for i = 1, length do
-        array[i] = decimal % 2
-        decimal = floor(decimal / 2)
-    end
-
-    return array
-end
-
--- ----------------------------------------------------------------------------
-
 --- @class Base
 --- @field __index Base
 --- @field alphabet table The alphabet to use
@@ -38,7 +22,7 @@ function Base.FromAlphabet(alphabet)
 
     local lookupTable = {}
     for i = 1, #alphabetArray do
-        lookupTable[alphabetArray[i]] = decimalToBinaryArray(i - 1, bitLength)
+        lookupTable[alphabetArray[i]] = i - 1
     end
 
     concreteBase.bitLength = bitLength
@@ -52,27 +36,22 @@ function Base:Encode(binaryBuffer)
     local tempTable = {}
     binaryBuffer:Seek(0)
 
-    local decimal
-    local i = 1
-    while binaryBuffer:Available() do
-        decimal = binaryBuffer:Read(self.bitLength)
-        tempTable[i] = self.alphabet[decimal+1]
-        i = i + 1
+    for i = 1, #binaryBuffer do
+        tempTable[i] = self.alphabet[binaryBuffer[i]+1]
     end
 
     return string.char(unpack(tempTable))
 end
 
 function Base:Decode(encodedString)
-    local binaryBuffer = BinaryBuffer.New()
+    local lookupTable = self.lookupTable
 
     local charsArray = { encodedString:byte(1, #encodedString) }
     for i = 1, #charsArray do
-        binaryBuffer:WriteBits(self.lookupTable[charsArray[i]], self.bitLength)
+        charsArray[i] = lookupTable[charsArray[i]]
     end
-    binaryBuffer:Seek(0)
 
-    return binaryBuffer
+    return BinaryBuffer.New(charsArray, self.bitLength)
 end
 
 -- ----------------------------------------------------------------------------

@@ -1,3 +1,6 @@
+local min = math.min
+local floor = math.floor
+
 local BinaryBuffer = {}
 BinaryBuffer.__index = BinaryBuffer
 
@@ -13,12 +16,16 @@ function BinaryBuffer:Seek(position)
     self.pointer = position
 end
 
+function BinaryBuffer:Skip(length)
+    self.pointer = self.pointer + length
+end
+
 function BinaryBuffer:Read(length)
     local decimal = 0
 
     local start = self.pointer + 1
     self.pointer = self.pointer + length
-    local stop = math.min(#self, self.pointer)
+    local stop = min(#self, self.pointer)
 
     for i = stop, start, -1 do
         decimal = decimal * 2 + self[i]
@@ -27,17 +34,23 @@ function BinaryBuffer:Read(length)
     return decimal
 end
 
+local MBL = {}
+do
+    for i = 1, 32 do MBL[i] = 2^i - 1 end
+end
+
 function BinaryBuffer:Write(decimal, length)
-    if 2^length-1 < decimal then
+    if MBL[length] < decimal then
         error(('%d cant be written to buffer with length %d'):format(decimal, length))
     end
 
-    for i = 1, length do
-        self[self.pointer+i] = decimal % 2
-        decimal = math.floor(decimal / 2)
-    end
-
+    local start = self.pointer + 1
     self.pointer = self.pointer + length
+
+    for i = start, self.pointer do
+        self[i] = decimal % 2
+        decimal = floor(decimal / 2)
+    end
 end
 
 function BinaryBuffer:WriteBit(bit)
