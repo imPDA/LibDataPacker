@@ -84,6 +84,43 @@ local GEAR_SLOTS = {
     EQUIP_SLOT_BACKUP_OFF,  -- 21
 }
 
+local FOOD_LOOKUP_TABLE = {
+    0,
+
+    17407, 17577, 17581, 17608, 17614,
+
+    61218, 61221, 61246, 61252, 61253, 61255, 61257, 61259, 61260, 61261, 61264, 61265, 61276, 61277, 61278, 61287, 61288, 61290, 61291,
+    61293, 61294, 61296, 61297, 61298, 61301, 61302, 61303, 61304, 61305, 61307, 61308, 61309, 61310, 61313, 61314, 61315, 61316, 61322,
+    61325, 61328, 61335, 61340, 61345, 61350, 61357, 61358, 61359, 61361, 61365, 61367, 61368, 65523, 65528, 65534, 65535, 65536, 66124,
+    66125, 66127, 66128, 66129, 66130, 66131, 66132, 66136, 66137, 66140, 66141, 66550, 66551, 66565, 66566, 66568, 66569, 66570, 66572,
+    66576, 66577, 66578, 66580, 66584, 66585, 66586, 66589, 66590, 66593, 66594, 66597, 68411, 68412, 68413, 68414, 68416,
+
+    72816, 72819, 72822, 72824, 72952, 72956, 72957, 72958, 72959, 72960, 72961, 72962, 72963, 72964, 72965, 72968, 72971, 72974, 72975,
+    73539, 73540, 73551, 73553,
+
+    84678, 84679, 84681, 84682, 84683, 84700, 84701, 84702, 84704, 84705, 84706, 84707, 84709, 84710, 84711, 84720, 84722, 84723, 84725,
+    84728, 84729, 84731, 84732, 84733, 84734, 84735, 84736, 84737, 85484, 85485, 85486, 85487, 85497, 86558, 86559, 86560, 86669, 86673,
+    86674, 86676, 86677, 86678, 86745, 86746, 86747, 86748, 86749, 86750, 86785, 86786, 86787, 86788, 86789, 86790, 86791, 89919, 89921,
+    89939, 89953, 89954, 89955, 89956, 89957, 89958, 89959, 89971, 89972, 89973,
+
+    92432, 92433, 92434, 92435, 92436, 92437, 92473, 92474, 92475, 92476, 92477, 92478,
+
+    100483, 100485, 100487, 100488, 100498, 100502, 107748, 107749, 107789, 107793, 107794,
+
+    127530, 127531, 127537, 127571, 127572, 127578, 127595, 127596, 127602, 127619, 127736,
+
+    140793, 148632, 148633,
+
+    245302,
+}
+
+local FOOD_ENUM = {}
+do
+    for i = 1, #FOOD_LOOKUP_TABLE do
+        FOOD_ENUM[FOOD_LOOKUP_TABLE[i]] = i
+    end
+end
+
 -- ----------------------------------------------------------------------------
 
 local function GetAlliance()    return GetUnitAlliance('player')        end
@@ -226,6 +263,20 @@ local function GetConstellations()
     return constellations
 end
 
+local function GetFood()
+    local numBuffs = GetNumBuffs('player')
+    if numBuffs == 0 then return end
+
+    for i = 1, numBuffs do
+        local _, _, _, _, _, _, _, _, _, _, abilityId = GetUnitBuffInfo('player', i)
+        if FOOD_ENUM[abilityId] then
+            return abilityId
+        end
+    end
+end
+
+-- TODO: find boons, food, etc. in one loop
+
 -- ---------------------------------------------------------------------------
 
 local LDP = LibDataPacker
@@ -364,6 +415,8 @@ local Build = Field.Table(nil, {
     Field.Array('gear', 14, Item),
 
     Field.Array('constellations', 12, Field.Enum(nil, CHAMPION_SLOTTABLE_SKILLS_LOOKUP_TABLE, true)),
+
+    Field.Enum('food', FOOD_ENUM),
 }, IGNORE_NAMES)
 
 -- ----------------------------------------------------------------------------
@@ -429,6 +482,7 @@ local ATTRIBUTES        = 11
 local STATS             = 12
 local GEAR              = 13
 local CONSTELLATIONS    = 14
+local FOOD              = 15
 
 local BUILD = {
     [ALLIANCE]          = GetAlliance,
@@ -445,6 +499,7 @@ local BUILD = {
     [STATS]             = GetStats,
     [GEAR]              = GetGear,
     [CONSTELLATIONS]    = GetConstellations,
+    [FOOD]              = GetFood,
 }
 
 local function GetSlotType(build, slot, hotbar)
@@ -511,6 +566,7 @@ local function PackBuild(build)
     build[SECOND_BOON] = build[SECOND_BOON] or 0
     build[WW_VAMP_BUFF] = build[WW_VAMP_BUFF] or 0
     build[GEAR] = convertToArray(build[GEAR], GEAR_SLOTS)
+    build[FOOD] = build[FOOD] or 0
 
     return LDP.Pack(build, Build, LDP.Base.Base64LinkSafe)
 end
@@ -527,6 +583,7 @@ local function UnpackBuild(packedBuild)
     build[SECOND_BOON] = build[SECOND_BOON] ~= 0 and build[SECOND_BOON] or nil
     build[WW_VAMP_BUFF] = build[WW_VAMP_BUFF] ~= 0 and build[WW_VAMP_BUFF] or nil
     build[GEAR] = convertToIndexedTable(build[GEAR], GEAR_SLOTS)
+    build[FOOD] = build[FOOD] ~= 0 and build[FOOD] or nil
 
     setmetatable(build, mt)
 
@@ -549,9 +606,34 @@ LDP.Extra.Build = {
     STATS           = STATS,
     GEAR            = GEAR,
     CONSTELLATIONS  = CONSTELLATIONS,
+    FOOD            = FOOD,
 
     GetLocalPlayerBuild = GetLocalPlayerBuild,
     GetPackedLocalPlayerBuild = GetPackedLocalPlayerBuild,
     UnpackBuild = UnpackBuild,
     GetSlotType = GetSlotType,
 }
+
+--[[ little self test
+if LIB_FOOD_DRINK_BUFF then
+    local Log = LibDataPacker_Logger()
+
+    local enum = {}
+
+    for i, buffId in ipairs(FOOD_LOOKUP_TABLE) do
+        enum[buffId] = i
+    end
+
+    local function exists(element)
+        if enum[element] then return true end
+    end
+
+    for drinkId, _ in pairs(LIB_FOOD_DRINK_BUFF.DRINK_BUFF_ABILITIES) do
+        if not exists(drinkId) then Log('Extra id (drink) found in LibFoodDrinkBuff: %d', drinkId) end
+    end
+
+    for foodId, _ in pairs(LIB_FOOD_DRINK_BUFF.FOOD_BUFF_ABILITIES) do
+        if not exists(foodId) then Log('Extra id (food) found in LibFoodDrinkBuff: %d', foodId) end
+    end
+end
+--]]

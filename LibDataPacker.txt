@@ -4,7 +4,7 @@
 ## APIVersion: 101044
 ## AddOnVersion: 1001000
 ; ## DependsOn: 
-## OptionalDependsOn: LibDebugLogger LibBinaryEncode WizardsWardrobe Zgoo
+## OptionalDependsOn: LibDebugLogger LibBinaryEncode WizardsWardrobe Zgoo LibFoodDrinkBuff
 
 logger.lua
 
