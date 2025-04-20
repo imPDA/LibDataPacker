@@ -8,7 +8,6 @@ local CLASSES_LOOKUP_TABLE = {
     117,
 }
 
---[[ if Xivilai become a thing
 local RACES_LOOKUP_TABLE = {
     1,  -- Breton
     2,  -- Redguard
@@ -20,9 +19,8 @@ local RACES_LOOKUP_TABLE = {
     8,  -- Wood Elf
     9,  -- Khajiit
     10, -- Imperial
-    -- 29,  -- Xivilai
+    -- 29,  -- Xivilai, if Xivilai become a thing
 }
---]]
 
 local BOONS_ENUM = {
     [13940] = 1,    -- Boon: The Warrior
@@ -393,7 +391,7 @@ local Build = Field.Table(nil, {
     Field.Number('alliance',        2),
     Field.Number('avaRank',         6),
 
-    Field.Number('race',            3),
+    Field.Enum('race', RACES_LOOKUP_TABLE, true),
     Field.Enum('class', CLASSES_LOOKUP_TABLE, true),
 
     -- Field.Number('skillPoints',     10),
@@ -418,6 +416,8 @@ local Build = Field.Table(nil, {
 
     Field.Enum('food', FOOD_ENUM),
 }, IGNORE_NAMES)
+
+GLOBAL_BUILD_TYPE = Build
 
 -- ----------------------------------------------------------------------------
 

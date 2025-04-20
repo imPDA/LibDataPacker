@@ -2,7 +2,7 @@
 ## Author: |c7c42f2@impda|r [EU]
 ## IsLibrary: true
 ## APIVersion: 101044
-## AddOnVersion: 1002000
+## AddOnVersion: 1001000
 ; ## DependsOn: 
 ## OptionalDependsOn: LibDebugLogger LibBinaryEncode WizardsWardrobe Zgoo LibFoodDrinkBuff
 
