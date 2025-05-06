@@ -2,12 +2,14 @@
 local BinaryBuffer = LibDataPacker_BinaryBuffer
 local floor = math.floor
 local log = math.log
+local char = string.char
 
 -- ----------------------------------------------------------------------------
 
 --- @class Base
 --- @field __index Base
 --- @field alphabet table The alphabet to use
+--- @field alphabet1 table The alphabet to use in decoding with shifted index
 --- @field encodeTable table Encode table based on alphabet 
 --- @field lookupTable table Lookup table based on alphabet 
 --- @field bitLength integer Bit length of one charater from the alphabet
@@ -29,6 +31,12 @@ function Base.FromAlphabet(alphabet)
     concreteBase.alphabet = alphabetArray
     concreteBase.lookupTable = lookupTable
 
+    local alphabet1 = {}
+    for i = 0, #alphabetArray-1 do
+        alphabet1[i] = alphabetArray[i+1]
+    end
+    concreteBase.alphabet1 = alphabet1
+
     return concreteBase
 end
 
@@ -36,11 +44,13 @@ function Base:Encode(binaryBuffer)
     local tempTable = {}
     binaryBuffer:Seek(0)
 
+    local alphabet1 = self.alphabet1
+
     for i = 1, #binaryBuffer do
-        tempTable[i] = self.alphabet[binaryBuffer[i]+1]
+        tempTable[i] = alphabet1[binaryBuffer[i]]
     end
 
-    return string.char(unpack(tempTable))
+    return char(unpack(tempTable))
 end
 
 function Base:Decode(encodedString)
