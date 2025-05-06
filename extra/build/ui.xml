@@ -1,0 +1,64 @@
+<GuiXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sir.insidi.at/or/schema/esoui.xsd">
+	<Controls>        
+        <Control name="LibDataPacker_Build_GearPeaceTemplate" mouseEnabled="true" virtual="true">
+            <Anchor point="TOPLEFT" />
+            <Dimensions x="500" y="48" />
+            <Controls>
+                <Label name="$(parent)SlotName" modifyTextType="UPPERCASE" font="ZoFontHeader2" text="-">
+                    <Dimensions x="100" />
+                    <Anchor point="LEFT" />
+                </Label>
+                
+                <Label name="$(parent)GearName" font="ZoFontHeader2" text="-">
+                    <Anchor point="LEFT" relativeTo="$(parent)SlotName" relativePoint="RIGHT" offsetX="100" />
+                </Label>
+
+                <Label name="$(parent)Level" horizontalAlignment="RIGHT" font="ZoFontHeader2" text="-">
+                    <!-- <Dimensions x="32" /> -->
+                    <Anchor point="RIGHT" relativeTo="$(parent)GearName" relativePoint="LEFT" offsetX="-4" />
+                </Label>
+                <Texture name="$(parent)CPIcon" textureFile="esoui/art/champion/champion_icon.dds" hidden="true">
+                    <Dimensions x="24" y="24" />
+                    <Anchor point="RIGHT" relativeTo="$(parent)Level" relativePoint="LEFT" />
+                </Texture>
+                
+                <Label name="$(parent)Set" font="ZoFontHeader2" text="-" hidden="true">
+                    <Anchor point="LEFT" relativeTo="$(parent)GearName" relativePoint="RIGHT" offsetX="16" />
+                </Label>
+                <Label name="$(parent)Trait" font="ZoFontGameSmall" text="-">
+                    <Dimensions x="70" />
+                    <Anchor point="TOPLEFT" relativeTo="$(parent)GearName" relativePoint="BOTTOMLEFT" />
+                </Label>
+                <Label name="$(parent)Enchantment" font="ZoFontGameSmall" text="-">
+                    <Anchor point="LEFT" relativeTo="$(parent)Trait" relativePoint="RIGHT" offsetX="16" />
+                </Label>
+            </Controls>
+
+            <OnMouseEnter>
+                if self.itemLink then
+                    InitializeTooltip(ItemTooltip, self, LEFT, 0, 0, RIGHT)
+                    ItemTooltip:SetLink(self.itemLink)
+                end
+            </OnMouseEnter>
+
+            <OnMouseExit>
+                ClearTooltip(ItemTooltip)
+            </OnMouseExit>
+        </Control>
+
+		<TopLevelControl name="LibDataPacker_Build_TLC" mouseEnabled="true" movable="true" hidden="true">
+            <Dimensions x="500" y="700" />
+            <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" />
+            <Controls>
+                <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" edgeColor="FFFF00" centerColor="000000" />
+                <Control name="$(parent)Gear">
+                    <Anchor point="TOPLEFT" offsetX="4" offsetY="16" />
+
+                    <OnInitialized>
+                        LibDataPacker_Build_InitializeGearSlots(self)
+                    </OnInitialized>
+                </Control>
+            </Controls>
+        </TopLevelControl> 
+	</Controls>
+</GuiXml>

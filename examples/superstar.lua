@@ -60,6 +60,8 @@ local function superstarExample()
     local unpackedBuild = Build.UnpackBuild(base64string)
     example.unpackedBuild = unpackedBuild
 
+    example.maxPossibleLength = Build.MaxLength
+
     if Zgoo then Zgoo.CommandHandler('LibDataPacker.examples.SuperStar') end
 
     --[[ BEFORE

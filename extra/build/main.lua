@@ -1,3 +1,5 @@
+local Log = LibDataPacker_Logger()
+
 local CLASSES_LOOKUP_TABLE = {
     1,
     2,
@@ -64,21 +66,22 @@ local ATTRIBUTES_LOOKUP_TABLE = {
 }
 
 local GEAR_SLOTS = {
-    EQUIP_SLOT_HEAD,  -- 0  
-    EQUIP_SLOT_CHEST,  -- 2
-    EQUIP_SLOT_SHOULDERS,  -- 3
-    EQUIP_SLOT_HAND,  -- 16
-    EQUIP_SLOT_WAIST,  -- 6
-    EQUIP_SLOT_LEGS,  -- 8
-    EQUIP_SLOT_FEET,  -- 9
+    EQUIP_SLOT_HEAD,        -- 0  
+    EQUIP_SLOT_CHEST,       -- 2
+    EQUIP_SLOT_SHOULDERS,   -- 3
+    EQUIP_SLOT_HAND,        -- 16
+    EQUIP_SLOT_WAIST,       -- 6
+    EQUIP_SLOT_LEGS,        -- 8
+    EQUIP_SLOT_FEET,        -- 9
 
-    EQUIP_SLOT_NECK,  -- 1
-    EQUIP_SLOT_RING1,  -- 11
-    EQUIP_SLOT_RING2,  -- 12
+    EQUIP_SLOT_NECK,        -- 1
+    EQUIP_SLOT_RING1,       -- 11
+    EQUIP_SLOT_RING2,       -- 12
 
-    EQUIP_SLOT_MAIN_HAND,  -- 4
-    EQUIP_SLOT_BACKUP_MAIN,  -- 20
-    EQUIP_SLOT_OFF_HAND,  -- 5
+    EQUIP_SLOT_MAIN_HAND,   -- 4
+    EQUIP_SLOT_OFF_HAND,    -- 5
+
+    EQUIP_SLOT_BACKUP_MAIN, -- 20
     EQUIP_SLOT_BACKUP_OFF,  -- 21
 }
 
@@ -118,6 +121,58 @@ do
         FOOD_ENUM[FOOD_LOOKUP_TABLE[i]] = i
     end
 end
+
+local SKILL_LINES_LOOKUP_TABLE = {
+    22,  -- Aedric Spear
+    27,  -- Dawn's Wrath
+    28,  -- Restoring Light
+
+    35,  -- Ardent Flame
+    36,  -- Draconic Power
+    37,  -- Earthen Heart
+
+    38,  -- Assassination
+    39,  -- Shadow
+    40,  -- Siphoning
+
+    41,  -- Dark Magic
+    42,  -- Daedric Summoning
+    43,  -- Storm Calling
+
+    127,  -- Animal Companions
+    128,  -- Green Balance
+    129,  -- Winter's Embrace
+
+    131,  -- Grave Lord
+    132,  -- Bone Tyrant
+    133,  -- Living Death
+
+    218,  -- Herald of the Tome
+    219,  -- Soldier of Apocrypha
+    220,  -- Curative Runeforms
+
+    297,  -- Vengeance Ardent Flame
+    298,  -- Vengeance Draconic Power
+    299,  -- Vengeance Earthen Heart
+    300,  -- Vengeance Assassination
+    301,  -- Vengeance Shadow
+    302,  -- Vengeance Siphoning
+    303,  -- Vengeance Aedric Spear
+    304,  -- Vengeance Dawn's Wrath
+    305,  -- Vengeance Restoring Light
+    306,  -- Vengeance Daedric Summoning
+    307,  -- Vengeance Dark Magic
+    308,  -- Vengeance Storm Calling
+    309,  -- Vengeance Animal Companions
+    310,  -- Vengeance Green Balance
+    311,  -- Vengeance Winter's Embrace
+    312,  -- Vengeance Grave Lord
+    313,  -- Vengeance Bone Tyrant
+    314,  -- Vengeance Living Death
+    315,  -- Vengeance Curative Runeforms
+    316,  -- Vengeance Soldier of Apocrypha
+    317,  -- Vengeance Herald of the Tome
+}
 
 -- ----------------------------------------------------------------------------
 
@@ -226,15 +281,23 @@ local function GetStats()
     return stats
 end
 
+local function GetItemLinkEnchantId(itemLink)
+    return tonumber(itemLink:match('|H[^:]+:item:[^:]+:[^:]+:[^:]+:([^:]+):'))
+end
+
 local function GetGearSlot(slot)
     local itemLink = GetItemLink(BAG_WORN, slot)
     if not itemLink or itemLink == '' then return {0, 0, 0, 0} end
 
+    Log(itemLink)
+
     local itemId = GetItemLinkItemId(itemLink)
     local itemQuality = GetItemLinkDisplayQuality(itemLink)
     local itemTrait = GetItemLinkTraitInfo(itemLink)
-    local itemEnchantId = GetItemLinkAppliedEnchantId(itemLink)
+    local itemEnchantId = GetItemLinkEnchantId(itemLink)  -- GetItemLinkAppliedEnchantId(itemLink)
     -- local itemEnchantQuality = GetEnchantQuality(itemLink)
+
+    Log(GetItemLinkFinalEnchantId(itemLink))
 
     return {itemId, itemQuality, itemTrait, itemEnchantId}
 end
@@ -274,6 +337,21 @@ local function GetFood()
 end
 
 -- TODO: find boons, food, etc. in one loop
+
+local function GetClassSkillLines()
+    local skillLines = {}
+
+    for i = 1, GetNumSkillLines(SKILL_TYPE_CLASS) do
+        local currentRank, isAdvised, isActive, isDiscovered, isProgressionAccountWide, isInTraining = GetSkillLineDynamicInfo(SKILL_TYPE_CLASS, i)
+        local skillLineId = GetSkillLineId(SKILL_TYPE_CLASS, i)
+
+        if isActive then
+            table.insert(skillLines, skillLineId)
+        end
+    end
+
+    return skillLines
+end
 
 -- ---------------------------------------------------------------------------
 
@@ -415,9 +493,9 @@ local Build = Field.Table(nil, {
     Field.Array('constellations', 12, Field.Enum(nil, CHAMPION_SLOTTABLE_SKILLS_LOOKUP_TABLE, true)),
 
     Field.Enum('food', FOOD_ENUM),
-}, IGNORE_NAMES)
 
-GLOBAL_BUILD_TYPE = Build
+    Field.Array('skillLines', 3, Field.Enum(nil, SKILL_LINES_LOOKUP_TABLE, true))
+}, IGNORE_NAMES)
 
 -- ----------------------------------------------------------------------------
 
@@ -483,6 +561,7 @@ local STATS             = 12
 local GEAR              = 13
 local CONSTELLATIONS    = 14
 local FOOD              = 15
+local CLASS_SKILL_LINES = 16
 
 local BUILD = {
     [ALLIANCE]          = GetAlliance,
@@ -500,6 +579,7 @@ local BUILD = {
     [GEAR]              = GetGear,
     [CONSTELLATIONS]    = GetConstellations,
     [FOOD]              = GetFood,
+    [CLASS_SKILL_LINES] = GetClassSkillLines,
 }
 
 local function GetSlotType(build, slot, hotbar)
@@ -548,6 +628,9 @@ local mt = {
 
 -- ----------------------------------------------------------------------------
 
+local BUILD_SCHEME = Build
+local BUILD_BASE = LDP.Base.Base64LinkSafe
+
 local function GetLocalPlayerBuild()
     local build = {}
 
@@ -568,7 +651,7 @@ local function PackBuild(build)
     build[GEAR] = convertToArray(build[GEAR], GEAR_SLOTS)
     build[FOOD] = build[FOOD] or 0
 
-    return LDP.Pack(build, Build, LDP.Base.Base64LinkSafe)
+    return LDP.Pack(build, BUILD_SCHEME, BUILD_BASE)
 end
 
 local function GetPackedLocalPlayerBuild()
@@ -576,7 +659,7 @@ local function GetPackedLocalPlayerBuild()
 end
 
 local function UnpackBuild(packedBuild)
-    local build = LDP.Unpack(packedBuild, Build, LDP.Base.Base64LinkSafe)
+    local build = LDP.Unpack(packedBuild, BUILD_SCHEME, BUILD_BASE)
 
     build[SKILLS] = unflattenSkills(build[SKILLS])
     build[FIRST_BOON] = build[FIRST_BOON] ~= 0 and build[FIRST_BOON] or nil
@@ -592,26 +675,31 @@ end
 
 LDP.Extra = LDP.Extra or {}
 LDP.Extra.Build = {
-    ALLIANCE        = ALLIANCE,
-    AVA_RANK        = AVA_RANK,
-    RACE            = RACE,
-    CLASS           = CLASS,
-    LEVEL           = LEVEL,
-    CP              = CP,
-    SKILLS          = SKILLS,
-    FIRST_BOON      = FIRST_BOON,
-    SECOND_BOON     = SECOND_BOON,
-    WW_VAMP_BUFF    = WW_VAMP_BUFF,
-    ATTRIBUTES      = ATTRIBUTES,
-    STATS           = STATS,
-    GEAR            = GEAR,
-    CONSTELLATIONS  = CONSTELLATIONS,
-    FOOD            = FOOD,
+    ALLIANCE            = ALLIANCE,
+    AVA_RANK            = AVA_RANK,
+    RACE                = RACE,
+    CLASS               = CLASS,
+    LEVEL               = LEVEL,
+    CP                  = CP,
+    SKILLS              = SKILLS,
+    FIRST_BOON          = FIRST_BOON,
+    SECOND_BOON         = SECOND_BOON,
+    WW_VAMP_BUFF        = WW_VAMP_BUFF,
+    ATTRIBUTES          = ATTRIBUTES,
+    STATS               = STATS,
+    GEAR                = GEAR,
+    CONSTELLATIONS      = CONSTELLATIONS,
+    FOOD                = FOOD,
+    CLASS_SKILL_LINES   = CLASS_SKILL_LINES,
+
+    GEAR_SLOTS          = GEAR_SLOTS,
 
     GetLocalPlayerBuild = GetLocalPlayerBuild,
     GetPackedLocalPlayerBuild = GetPackedLocalPlayerBuild,
     UnpackBuild = UnpackBuild,
     GetSlotType = GetSlotType,
+
+    MaxLength = LDP.Diagnostics.MaxLength(BUILD_SCHEME, BUILD_BASE),
 }
 
 --[[ little self test
