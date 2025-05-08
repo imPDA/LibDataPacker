@@ -3,6 +3,7 @@ local BinaryBuffer = LibDataPacker_BinaryBuffer
 local floor = math.floor
 local ceil = math.ceil
 local log = math.log
+local char = string.char
 
 local lib = {}
 
@@ -257,8 +258,9 @@ function VLArray:Unserialize(binaryBuffer)
 
     local length = self.length:Unserialize(binaryBuffer)
 
+    local subType = self.subType
     for i = 1, length do
-        result[i] = self.subType:Unserialize(binaryBuffer)
+        result[i] = subType:Unserialize(binaryBuffer)
     end
 
     return result
@@ -267,8 +269,9 @@ end
 function VLArray:Skip(binaryBuffer)
     local length = self.length:Unserialize(binaryBuffer)
 
+    local subType = self.subType
     for _ = 1, length do
-        self.subType:Skip(binaryBuffer)
+        subType:Skip(binaryBuffer)
     end
 end
 
@@ -428,34 +431,53 @@ function String:Serialize(data, binaryBuffer)
     end
 end
 
+local precomputedPointerChange = {}
+do
+    for i = 0, 5 do
+        precomputedPointerChange[i] = floor((i + 8) / 6)
+    end
+end
+local function read8(buffer)
+    local startPointer, startShift = buffer.chunkPointer, buffer.shift
+
+    buffer.shift = (startShift + 8) % 6
+    buffer.chunkPointer = buffer.chunkPointer + precomputedPointerChange[startShift]
+
+    local decimal = buffer[buffer.chunkPointer]
+    for i = buffer.chunkPointer-1, startPointer, -1  do
+        decimal = BitOr(BitLShift(decimal, 6), buffer[i])
+    end
+
+    return BitAnd(0xFF, BitRShift(decimal, startShift))
+end
+
 function String:Unserialize(dataBuffer)
     local bytesTotal = self.length:Unserialize(dataBuffer)
 
-    local bytesRead = 0
-    local tempTable, i = {}, 1
-    while bytesRead < bytesTotal do
-        local firstByte = dataBuffer:Read(8)
+    local bytes = {}
 
-        local numBytes = 1
-        if firstByte >= 0xC0 and firstByte < 0xE0 then
-            numBytes = 2
-        elseif firstByte >= 0xE0 and firstByte < 0xF0 then
-            numBytes = 3
-        elseif firstByte >= 0xF0 then
-            numBytes = 4
+    if dataBuffer.chunkSize == 6 then
+        local p = floor(bytesTotal / 6) * 6
+        local reminder = bytesTotal % 6
+
+        for i = 1, p, 6 do
+            local decimal = dataBuffer:Read(48)  -- TODO: optimizable
+            for k = 0, 4 do
+                bytes[i+k] = BitAnd(decimal, 0xFF); decimal = BitRShift(decimal, 8)
+            end
+            bytes[i+5] = decimal
         end
 
-        local bytes = {firstByte}
-        for j = 2, numBytes do
-            bytes[j] = dataBuffer:Read(8)
+        for i = p+1, p+reminder do
+            bytes[i] = read8(dataBuffer)
         end
-
-        tempTable[i] = string.char(unpack(bytes))
-        i = i + 1
-        bytesRead = bytesRead + #bytes
+    else
+        for i = 1, bytesTotal do
+            bytes[i] = dataBuffer:Read(8)
+        end
     end
 
-    return table.concat(tempTable)
+    return char(unpack(bytes))
 end
 
 function String:Skip(binaryBuffer)

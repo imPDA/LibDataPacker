@@ -2,7 +2,7 @@
 ## Author: |c7c42f2@impda|r [EU]
 ## IsLibrary: true
 ## APIVersion: 101045
-## AddOnVersion: 1002000
+## AddOnVersion: 1003000
 ; ## DependsOn: 
 ## OptionalDependsOn: LibDebugLogger LibBinaryEncode WizardsWardrobe Zgoo LibFoodDrinkBuff
 
@@ -17,7 +17,7 @@ extra/build/main.lua
 extra/build/ui.lua
 extra/build/ui.xml
 
-examples/superstar.lua
+; examples/superstar.lua
 ; examples/coordinates.lua
 ; examples/string.lua
 ; examples/common.lua

@@ -13,21 +13,25 @@ function ChunkBuffer.New(tbl, chunkSize)
     self.chunkPointer = 1
     self.shift = 0
 
+    self.invChunkSize = 1 / chunkSize
+
     return self
 end
 
 function ChunkBuffer:GetPointers(position)
-    return floor(position / self.chunkSize) + 1, position % self.chunkSize
+    return floor(position * self.invChunkSize) + 1, position % self.chunkSize
 end
 
 function ChunkBuffer:Seek(position)
-    self.chunkPointer = floor(position / self.chunkSize) + 1
+    self.chunkPointer = floor(position * self.invChunkSize) + 1
     self.shift = position % self.chunkSize
 end
 
 function ChunkBuffer:Skip(length)
     length = length + self.shift
-    self.chunkPointer = self.chunkPointer + floor(length / self.chunkSize)
+    if length >= self.chunkSize then
+        self.chunkPointer = self.chunkPointer + floor(length * self.invChunkSize)
+    end
     self.shift = length % self.chunkSize
 end
 
@@ -58,7 +62,7 @@ function ChunkBuffer:Write(decimal, length)
     end
 
     local C = self.chunkSize
-    local L = 2^C-1
+    local L = MBL[C]
 
     decimal = BitLShift(decimal, self.shift)
 
