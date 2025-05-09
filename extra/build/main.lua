@@ -522,9 +522,9 @@ end
 local function flattenSkills(skillsTable)
     local flatArray = {}
 
-    for _, hotbar in pairs(skillsTable) do
-        for _, skill in pairs(hotbar) do
-            flatArray[#flatArray+1] = skill
+    for hotbar = HOTBAR_CATEGORY_PRIMARY, HOTBAR_CATEGORY_BACKUP do
+        for index = 3, 8 do
+            flatArray[#flatArray+1] = skillsTable[hotbar][index]
         end
     end
 
@@ -571,8 +571,8 @@ local BUILD = {
     [LEVEL]             = GetLevel,
     [CP]                = GetCP,
     [SKILLS]            = GetSkills,
-    [FIRST_BOON]        = function() GetBoon(1) end,
-    [SECOND_BOON]       = function() GetBoon(2) end,
+    [FIRST_BOON]        = function() return GetBoon(1) end,
+    [SECOND_BOON]       = function() return GetBoon(2) end,
     [WW_VAMP_BUFF]      = GetWWorVampireBuff,
     [ATTRIBUTES]        = GetAttributes,
     [STATS]             = GetStats,
@@ -702,9 +702,9 @@ LDP.Extra.Build = {
     MaxLength = LDP.Diagnostics.MaxLength(BUILD_SCHEME, BUILD_BASE),
 }
 
---[[ little self test
+---[[ little self test
+local Log = LibDataPacker_Logger()
 if LIB_FOOD_DRINK_BUFF then
-    local Log = LibDataPacker_Logger()
 
     local enum = {}
 
@@ -723,5 +723,9 @@ if LIB_FOOD_DRINK_BUFF then
     for foodId, _ in pairs(LIB_FOOD_DRINK_BUFF.FOOD_BUFF_ABILITIES) do
         if not exists(foodId) then Log('Extra id (food) found in LibFoodDrinkBuff: %d', foodId) end
     end
+end
+
+do
+    Log('Max length of Build string:', LDP.Diagnostics.MaxLength(Build, LDP.Base.Base64LinkSafe))
 end
 --]]
