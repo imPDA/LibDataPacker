@@ -696,16 +696,16 @@ LDP.Extra.Build = {
 
     GetLocalPlayerBuild = GetLocalPlayerBuild,
     GetPackedLocalPlayerBuild = GetPackedLocalPlayerBuild,
+    PackBuild = PackBuild,
     UnpackBuild = UnpackBuild,
-    GetSlotType = GetSlotType,
+    -- GetSlotType = GetSlotType,
 
     MaxLength = LDP.Diagnostics.MaxLength(BUILD_SCHEME, BUILD_BASE),
 }
 
----[[ little self test
+--[[ little self test
 local Log = LibDataPacker_Logger()
 if LIB_FOOD_DRINK_BUFF then
-
     local enum = {}
 
     for i, buffId in ipairs(FOOD_LOOKUP_TABLE) do

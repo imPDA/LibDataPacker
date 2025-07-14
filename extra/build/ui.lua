@@ -400,6 +400,6 @@ function LibDataPacker_Build_LayoutBuild(build)
     LayoutVampireOrWWBuff(build)
 end
 
-do
-    zo_callLater(function() LibDataPacker_Build_LayoutBuild() end, 2000)
-end
+-- do
+--     zo_callLater(function() LibDataPacker_Build_LayoutBuild() end, 2000)
+-- end

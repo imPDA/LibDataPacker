@@ -100,7 +100,6 @@ Field.Array(name, length, elementType)  -- Fixed length
 - name: Field name, _optional_
 - length: Array length
 - elementType: type of array elements (can be any `Field`)
-</details>
 
 Indexed table with strictly defined amount of elements.
 
@@ -117,6 +116,7 @@ local data = {
   555555,
 }
 ```
+</details>
 
 <details>
 <summary>Variable Length Array</summary>
@@ -127,16 +127,15 @@ Field.VLArray(name, maxLength, elementType)  -- Variable length
 - name: Field name, _optional_
 - maxLength: Max expected length
 - elementType: type of array elements
-</details>
 
 Same as `Array`, but can contain from `0` to `maxLength` elements.
+</details>
 
 <details>
-<summary>Table/Struct</summary>
+<summary>Table (Scheme)</summary>
 
 ```lua
 Field.Table(name, fields, ignoreNames)
-fields: Array of field definitions
 ```
 - name: Field name, _optional_
 - fields: Table with type of every field
@@ -172,7 +171,6 @@ local someData = {
   "SomeSuperNamePK",  -- name
 }
 ```
-
 </details>
 
 ## 2. Core Functions
@@ -310,3 +308,195 @@ local unpacked = LibDataPacker.Unpack(packed, charSchema)
 ```
 
 Please refer to extra/build/main.lua for more advanced example.
+
+## 3. extra/build
+
+This is an separate module which can collect all data about character build (skills, gear, food, CP, etc.) and pack to compact string for storing or transmission.
+
+### Main functions:
+```lua
+local Build = LibDataPacker.Extra.Build
+
+Build.GetLocalPlayerBuild()
+-- returns raw build (table) of local player
+
+Build.GetPackedLocalPlayerBuild()
+-- returns packed build (string) of local player
+
+Build.PackBuild(build)
+-- returns packed build
+
+Build.UnpackBuild(packedBuild)
+-- returns unpacked build (table)
+```
+
+### Build structure
+Build itself is a table with schema defined in `extra/build/main.lua`. It consists 16 parts:
+
+```lua
+local ALLIANCE          = 1
+local AVA_RANK          = 2
+local RACE              = 3
+local CLASS             = 4
+local LEVEL             = 5
+local CP                = 6
+local SKILLS            = 7
+local FIRST_BOON        = 8
+local SECOND_BOON       = 9
+local WW_VAMP_BUFF      = 10
+local ATTRIBUTES        = 11
+local STATS             = 12
+local GEAR              = 13
+local CONSTELLATIONS    = 14
+local FOOD              = 15
+local CLASS_SKILL_LINES = 16
+```
+
+You can acces any part with these enums like this:
+
+```lua
+local build = Build.GetLocalPlayerBuild()
+
+local allianceId = build[Build.ALLIANCE]
+-- returns player allianceId
+
+local food = build[Build.FOOD]
+-- returns food buff id
+```
+
+Please refer to `extra/build/main.lua` to see how fields defined. Most of them are plain numbers:
+- ALLIANCE
+- AVA_RANK
+- RACE
+- CLASS
+- LEVEL
+- CP
+- FIRST_BOON
+- SECOND_BOON
+- WW_VAMP_BUFF
+- FOOD
+
+or tables/arrays. Some of them:
+
+- `Item` (table)
+```lua
+local Item = Field.Table('item', {
+    Field.Number('id',              20),
+    Field.Number('quality',         3),
+    Field.Number('trait',           6),
+    Field.Number('enchantmentId',   20),
+}, IGNORE_NAMES)
+
+-- for example
+local item = {
+  123456, -- id
+  7,      -- quality
+  8,      -- trait
+  901234  -- encahnmentId
+}
+```
+
+- `Gear` (array)
+```lua
+Field.Array('gear', 14, Item)
+```
+Gear is an array of 14 items. To get particular piece, you can use default `EQUIP_SLOT_...` globals:
+```lua
+-- EQUIP_SLOT_HEAD  
+-- EQUIP_SLOT_CHEST
+-- EQUIP_SLOT_SHOULDERS
+-- EQUIP_SLOT_HAND
+-- EQUIP_SLOT_WAIST
+-- EQUIP_SLOT_LEGS
+-- EQUIP_SLOT_FEET
+-- EQUIP_SLOT_NECK
+-- EQUIP_SLOT_RING1
+-- EQUIP_SLOT_RING2
+-- EQUIP_SLOT_MAIN_HAND
+-- EQUIP_SLOT_OFF_HAND
+-- EQUIP_SLOT_BACKUP_MAIN
+-- EQUIP_SLOT_BACKUP_OFF
+
+
+build = GetLocalPlayerBuild()
+
+local chest = build[Build.GEAR][EQUIP_SLOT_CHEST]
+local head = build[Build.GEAR][EQUIP_SLOT_HEAD]
+-- ... your code here
+
+-- or with iteration
+
+for equipSlot = EQUIP_SLOT_ITERATION_BEGIN, EQUIP_SLOT_ITERATION_END do
+  local piece = build[Build.GEAR][equipSlot]
+  -- ... your code here
+end
+```
+
+### Special functions
+
+```lua
+-- Hotbar slot type
+build:GetSlotType(hotbarCategory)
+```
+- hotbarCategory: HOTBAR_CATEGORY_PRIMARY or HOTBAR_CATEGORY_BACKUP
+- returns: slot type (ACTION_TYPE_ABILITY or ACTION_TYPE_CRAFTED_ABILITY)
+
+```lua
+-- Hotbar slot bound id
+build:GetSlotBoundId(slotIndex, hotbarCategory)
+```
+- slotIndex: slot index, 3-8
+- hotbarCategory: HOTBAR_CATEGORY_PRIMARY or HOTBAR_CATEGORY_BACKUP
+- returns: slot bound id
+
+```lua
+-- Hotbar slot script ids
+build:GetSlotScriptIds(slotIndex, hotbarCategory)
+```
+- slotIndex: slot index, 3-8
+- hotbarCategory: HOTBAR_CATEGORY_PRIMARY or HOTBAR_CATEGORY_BACKUP
+- returns: slot script ids
+
+```lua 
+-- Player stat
+build:GetPlayerStat(statId)
+```
+- statId: stat id, e.x. STAT_HEALTH_MAX, STAT_PHYSICAL_PENETRATION, etc.
+- returns: stat value
+
+These functions are close to ZOs default functions, so you can easily replace them:
+
+```lua
+-- BEFORE
+local health = GetPlayerStat(STAT_HEALTH_MAX)
+local magicka = GetPlayerStat(STAT_MAGICKA_MAX)
+
+
+-- AFTER
+-- in header
+local Build = LibImplex.Extra.Build
+
+-- get local player's build
+local build = Build.GetLocalPlayerBuild()
+-- or unpack some other build
+local build = Build.UnpackBuild(...)
+
+-- get stats from this build
+local health = build:GetPlayerStat(STAT_HEALTH_MAX)
+local magicka = build:GetPlayerStat(STAT_MAGICKA_MAX)
+```
+
+You can also refer to `extra/build/ui.lua` for more examples how to use each part of build. `Layout...` functions will be a good demonstration how to get and use one part or another:
+
+```lua
+  LayoutBasicInfo(build)        -- level, CP, race, etc.
+  LayoutGear(build)             -- gear
+  LayoutSkills(build)           -- skills
+  LayoutAttributes(build)       -- max HP, mana, stam
+  LayoutStats(build)            -- resists, penetration, crit, wpd/spd
+  LayoutConstellations(build)   -- constellations
+  LayoutSkillLines(build)       -- skill lines (for subclassing)
+  LayoutBoons(build)            -- boons
+  LayoutFood(build)             -- food buff
+  LayoutVampireOrWWBuff(build)  -- vampire (ww) buff
+```
