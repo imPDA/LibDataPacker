@@ -29,7 +29,7 @@
         <Control name="LibDataPacker_Build_SkillbarTemplate" virtual="true">
             <Dimensions y="48" />
             <Controls>
-                <Texture name="$(parent)Icon" inherits="LibDataPacker_Build_SkillTextureTemplate" color="00BB00">
+                <Texture name="$(parent)Icon" inherits="LibDataPacker_Build_SkillTextureTemplate" hidden="true">
                     <Anchor point="LEFT" />
                 </Texture>
                 <Texture name="$(parent)Skill3" inherits="LibDataPacker_Build_SkillTextureTemplate">
@@ -83,17 +83,19 @@
             </Controls>
         </Control>
         
-        <Control name="LibDataPacker_Build_GearPeaceTemplate" mouseEnabled="true" virtual="true">
+        <Control name="LibDataPacker_Build_GearPeaceTemplate" mouseEnabled="true" virtual="true" resizeToFitDescendents="true">
             <Anchor point="TOPLEFT" />
-            <Dimensions x="500" y="48" />
             <Controls>
+                <!-- <Texture name="$(parent)BG" color="FFFFFF" alpha="0.3" excludeFromResizeToFitExtents="true">
+                    <AnchorFill />
+                </Texture> -->
                 <Label name="$(parent)SlotName" modifyTextType="UPPERCASE" font="ZoFontHeader2" text="-">
                     <Dimensions x="100" />
-                    <Anchor point="LEFT" />
+                    <Anchor point="TOPLEFT" />
                 </Label>
                 
                 <Label name="$(parent)GearName" font="ZoFontHeader2" text="-">
-                    <Anchor point="LEFT" relativeTo="$(parent)SlotName" relativePoint="RIGHT" offsetX="100" />
+                    <Anchor point="LEFT" relativeTo="$(parent)SlotName" relativePoint="RIGHT" offsetX="80" />
                 </Label>
 
                 <Label name="$(parent)Level" horizontalAlignment="RIGHT" font="ZoFontHeader2" text="-">
@@ -170,14 +172,33 @@
             </Controls>
         </Label>
 
-		<TopLevelControl name="LibDataPacker_Build_TLC" mouseEnabled="true" movable="true" hidden="true">
-            <Dimensions x="700" y="900" />
+		<TopLevelControl name="LibDataPacker_Build_TLC" resizeToFitDescendents="true" mouseEnabled="true" movable="true" hidden="true">
+            <!-- <Dimensions x="700" y="900" /> -->
             <Anchor point="CENTER" relativeTo="GuiRoot" relativePoint="CENTER" />
             <Controls>
-                <Backdrop name="$(parent)BG" inherits="ZO_FrameBackdrop" />
+                <Backdrop name="$(parent)BG" inherits="ZO_FrameBackdrop">
+                    <Anchor point="TOPLEFT" offsetX="-10" offsetY="-5" />
+                    <Anchor point="BOTTOMRIGHT" offsetX="10" offsetY="10" />
+                </Backdrop>
+                
+                <Label name="$(parent)Header" font="ZoFontHeader3" horizontalAlignment="CENTER" text="Build Viewer">
+                    <Anchor point="TOP" offsetY="4" /> 
+                </Label>
+                <Button name="$(parent)CloseButton" excludeFromResizeToFitExtents="true">
+                    <Anchor point="TOPRIGHT" relativePoint="TOPRIGHT" offsetX="6" offsetY="-6" />
+                    <Dimensions x="42" y="42"/>
+                    <Textures 
+                        normal="/esoui/art/hud/radialicon_cancel_up.dds"
+                        mouseOver="/esoui/art/hud/radialicon_cancel_over.dds"
+                    />
+                    <OnClicked>
+                        self:GetParent():SetHidden(true)
+                    </OnClicked>
+                </Button>
+
                 <Control name="$(parent)BasicInfo">
                     <Dimensions x="360" y="80" />
-                    <Anchor point="TOPLEFT" offsetX="4" offsetY="4" />
+                    <Anchor point="TOPLEFT" offsetY="48" />
                     <Controls>
                         <!-- <Backdrop name="$(parent)BG" inherits="ZO_FrameBackdrop" /> -->
                         <Texture name="$(parent)AllianceIcon">
@@ -293,31 +314,37 @@
                         </Control>
                     </Controls>
                 </Control>
-                <Control name="$(parent)Gear">
-                    <Dimensions x="520" y="700" />
+                <Control name="$(parent)Gear" resizeToFitDescendents="true">
+                    <!-- <Dimensions x="520" y="700" /> -->
                     <Anchor point="TOPLEFT" relativeTo="$(parent)Attributes" relativePoint="BOTTOMLEFT"/>
                     <Controls>
-                        <!-- <Backdrop name="$(parent)BG" inherits="ZO_FrameBackdrop" /> -->
+                        <!-- <Texture name="$(parent)BG" color="0000AA" excludeFromResizeToFitExtents="true">
+                            <AnchorFill />
+                        </Texture> -->
                     </Controls>
                     <OnInitialized>
                         LibDataPacker_Build_InitializeGearSlots(self)
                     </OnInitialized>
                 </Control>
-                <Control name="$(parent)Disciplines">
-                    <Dimensions x="160" y="400" />
-                    <Anchor point="TOPLEFT" relativeTo="$(parent)Gear" relativePoint="TOPRIGHT"/>
+                <Control name="$(parent)Disciplines" resizeToFitDescendents="true">
+                    <!-- <Dimensions x="160" y="400" /> -->
+                    <Anchor point="TOPLEFT" relativeTo="$(parent)Gear" relativePoint="TOPRIGHT" offsetX="16" />
                     <Controls>
-                        <Backdrop name="$(parent)BG" inherits="ZO_FrameBackdrop" />
+                        <!-- <Texture name="$(parent)BG" color="00AA00" excludeFromResizeToFitExtents="true">
+                            <AnchorFill />
+                        </Texture> -->
                     </Controls>
                     <OnInitialized>
                         LibDataPacker_Build_InitializeDisciplineSlots(self)
                     </OnInitialized>
                 </Control>
-                <Control name="$(parent)SkillLines">
-                    <Dimensions x="160" y="150" />
-                    <Anchor point="TOPLEFT" relativeTo="$(parent)Disciplines" relativePoint="BOTTOMLEFT"/>
+                <Control name="$(parent)SkillLines" resizeToFitDescendents="true">
+                    <!-- <Dimensions x="160" y="150" /> -->
+                    <Anchor point="TOPLEFT" relativeTo="$(parent)Disciplines" relativePoint="BOTTOMLEFT" offsetY="8" />
                     <Controls>
-                        <!-- <Backdrop name="$(parent)BG" inherits="ZO_FrameBackdrop" /> -->
+                        <!-- <Texture name="$(parent)BG" color="0000AA" excludeFromResizeToFitExtents="true">
+                            <AnchorFill />
+                        </Texture> -->
                         <Label name="$(parent)SkillLine1" inherits="LibDataPacker_Build_SkillLineTemplate">
                             <Anchor point="TOPLEFT" />
                         </Label>
@@ -329,11 +356,13 @@
                         </Label>
                     </Controls>
                 </Control>
-                <Control name="$(parent)Boons">
-                    <Dimensions x="160" y="70" />
-                    <Anchor point="TOPLEFT" relativeTo="$(parent)SkillLines" relativePoint="BOTTOMLEFT"/>
+                <Control name="$(parent)Boons" resizeToFitDescendents="true">
+                    <!-- <Dimensions x="160" y="70" /> -->
+                    <Anchor point="TOPLEFT" relativeTo="$(parent)SkillLines" relativePoint="BOTTOMLEFT" offsetY="8" />
                     <Controls>
-                        <!-- <Backdrop name="$(parent)BG" inherits="ZO_FrameBackdrop" /> -->
+                        <!-- <Texture name="$(parent)BG" color="00AA00" excludeFromResizeToFitExtents="true">
+                            <AnchorFill />
+                        </Texture> -->
                         <Control name="$(parent)Main" hidden="true">
                             <Dimensions x="160" y="32"/>
                             <Anchor point="TOPLEFT" />
@@ -364,11 +393,13 @@
                         </Control>
                     </Controls>
                 </Control>
-                <Control name="$(parent)Food">
-                    <Dimensions x="160" y="32" />
-                    <Anchor point="TOPLEFT" relativeTo="$(parent)Boons" relativePoint="BOTTOMLEFT"/>
+                <Control name="$(parent)Food" resizeToFitDescendents="true">
+                    <!-- <Dimensions x="160" y="32" /> -->
+                    <Anchor point="TOPLEFT" relativeTo="$(parent)Boons" relativePoint="BOTTOMLEFT" offsetY="8" />
                     <Controls>
-                        <!-- <Backdrop name="$(parent)BG" inherits="ZO_FrameBackdrop" /> -->
+                        <!-- <Texture name="$(parent)BG" color="0000AA" excludeFromResizeToFitExtents="true">
+                            <AnchorFill />
+                        </Texture> -->
                         <Texture name="$(parent)Icon">
                             <Dimensions x="32" y="32" />
                             <Anchor point="LEFT" />
@@ -379,11 +410,13 @@
                         </Label>
                     </Controls>
                 </Control>
-                <Control name="$(parent)VampWW">
-                    <Dimensions x="160" y="32" />
-                    <Anchor point="TOPLEFT" relativeTo="$(parent)Food" relativePoint="BOTTOMLEFT"/>
+                <Control name="$(parent)VampWW" resizeToFitDescendents="true">
+                    <!-- <Dimensions x="160" y="32" /> -->
+                    <Anchor point="TOPLEFT" relativeTo="$(parent)Food" relativePoint="BOTTOMLEFT" offsetY="8" />
                     <Controls>
-                        <!-- <Backdrop name="$(parent)BG" inherits="ZO_FrameBackdrop" /> -->
+                        <!-- <Texture name="$(parent)BG" color="00AA00" excludeFromResizeToFitExtents="true">
+                            <AnchorFill />
+                        </Texture> -->
                         <Texture name="$(parent)Icon">
                             <Dimensions x="32" y="32" />
                             <Anchor point="LEFT" />

@@ -1,0 +1,18 @@
+V. 4
+BUILD
+- New extra module to share full build via ingame links
+- Can share full build in one link (~220 characters) or short build
+- Uses special alphabet to minimize chance of being changed by ingame profanity filter
+- Have built-in simple window to preview full and short build
+
+MAIN
+- Changed Enum field - it can now preallocate more space for future changes
+- Added new function to Table field to copy and change it easily
+
+V. 2
+- Added option to skip field
+- Rework of buffer (big speed increase)
+- Added extra functionality - 'build', to share builds via common interface (CAUTION! it is under testing, very big chance to be changed in the future)
+
+V. 1
+- Initial

@@ -282,9 +282,17 @@ end
 
 -- ----------------------------------------------------------------------------
 
+local function isSequential(tbl)
+    if next(tbl) ~= 1 then
+        return false
+    else
+        return next(tbl, #tbl) == nil
+    end
+end
+
 --- @class Table : Field
 --- @field __index Table
---- @field fields Field[] The fields contained in the table
+--- @field _fields Field[] The fields contained in the table
 local Table = setmetatable({}, { __index = Field })
 Table.__index = Table
 
@@ -296,8 +304,19 @@ function Table.New(name, fields, ignoreNames)
     --- @class (partial) Table
     local o = setmetatable(Field.New(name, TABLE), Table)
 
-    o.fields = fields
-    o.ignoreNames = ignoreNames
+    o._fields = fields
+    o._ignoreNames = ignoreNames
+
+    assert(isSequential(fields), 'Fields table must be a simple array!')
+
+    o._indicies = {}
+    for i = 1, #fields do
+        if fields[i].name then
+            o._indicies[fields[i].name] = i
+        else
+            o._indicies[#o._indicies+1] = i
+        end
+    end
 
     return o
 end
@@ -308,15 +327,15 @@ end
 function Table:Serialize(data, binaryBuffer)
     if type(data) ~= 'table' then error('Value must be a table') end
 
-    if self.ignoreNames then
-        for i = 1, #self.fields do
-            local field = self.fields[i]
+    if self._ignoreNames then
+        for i = 1, #self._fields do
+            local field = self._fields[i]
             local datum = data[i]
             field:Serialize(datum, binaryBuffer)
         end
     else
-        for i = 1, #self.fields do
-            local field = self.fields[i]
+        for i = 1, #self._fields do
+            local field = self._fields[i]
             local datum = data[field.name]
             field:Serialize(datum, binaryBuffer)
         end
@@ -327,12 +346,12 @@ function Table:Unserialize(dataBuffer)
     local result = {}
 
     local l = 1
-    for i = 1, #self.fields do
-        local field = self.fields[i]
+    for i = 1, #self._fields do
+        local field = self._fields[i]
 
         local unserializedData = field:Unserialize(dataBuffer)
 
-        if self.ignoreNames or not field.name then
+        if self._ignoreNames or not field.name then
             result[l] = unserializedData
             l = l + 1
         else
@@ -344,19 +363,46 @@ function Table:Unserialize(dataBuffer)
 end
 
 function Table:Skip(binaryBuffer)
-    for i = 1, #self.fields do
-        self.fields[i]:Skip(binaryBuffer)
+    for i = 1, #self._fields do
+        self._fields[i]:Skip(binaryBuffer)
     end
 end
 
 function Table:GetMaxBitLength()
     local totalBitLength = 0
 
-    for i = 1, #self.fields do
-        totalBitLength = totalBitLength + self.fields[i]:GetMaxBitLength()
+    for i = 1, #self._fields do
+        totalBitLength = totalBitLength + self._fields[i]:GetMaxBitLength()
     end
 
     return totalBitLength
+end
+
+function Table:Replace(name, substitute)
+    self._fields[self._indicies[name]] = substitute
+end
+
+function Table:GetFields()
+    return self._fields
+end
+
+function Table:ShallowCopy(fieldsToCopy)
+    local newFieldsArray = {}
+
+    if fieldsToCopy then
+        for i = 1, #fieldsToCopy do
+            local fieldIndex = self._indicies[fieldsToCopy[i]]
+            newFieldsArray[i] = self._fields[fieldIndex]
+        end
+    else
+        ZO_ShallowTableCopy(self._fields, newFieldsArray)
+    end
+
+    return Table.New(self.name, newFieldsArray, self._ignoreNames)
+end
+
+function Table:Remove(index)
+    table.remove(self._fields, self._indicies[index])
 end
 
 -- ----------------------------------------------------------------------------
@@ -501,8 +547,9 @@ Enum.__index = Enum
 --- @param name string|nil The field name
 --- @param enumTable table The table of values
 --- @param inverted boolean|nil If the table is lookup table instead
+--- @param bitLength number|nil Amount of reserved bits for Enum 
 --- @return Enum @The new Enum field
-function Enum.New(name, enumTable, inverted)
+function Enum.New(name, enumTable, inverted, bitLength)
     --- @class (partial) Enum
     local o = setmetatable(Field.New(name, ENUM), Enum)
 
@@ -517,8 +564,18 @@ function Enum.New(name, enumTable, inverted)
         o.forward, o.backward = o.backward, o.forward
     end
 
-    local bitLength = maxBitLengthFor(#o.backward)
-    o.subType = Numeric.New(nil, bitLength) --[[@as Numeric]]
+    local calculatedBitLength = maxBitLengthFor(#o.backward)
+
+    if bitLength then
+        if calculatedBitLength > bitLength then
+            error(('Enum `%s` requires more bits (%d) than reserved (%d)'):format(string(o.name), calculatedBitLength, bitLength))
+        end
+        o.bitLength = bitLength
+    else
+        o.bitLength = calculatedBitLength
+    end
+
+    o.subType = Numeric.New(nil, o.bitLength) --[[@as Numeric]]
 
     return o
 end
@@ -635,6 +692,13 @@ end
 function lib.Unpack(data, schema, base)
     base = base or lib.Base.Base64RCF4648
     return schema:Unserialize(base:Decode(data))
+end
+
+function lib.Repack(data, oldSchema, newSchema, oldBase, newBase)
+    newSchema = newSchema or oldSchema
+    newBase = newBase or oldBase
+
+    return lib.Pack(lib.Unpack(data, oldSchema, oldBase), newSchema, newBase)
 end
 
 -- ----------------------------------------------------------------------------

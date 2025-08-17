@@ -34,17 +34,11 @@ local CHAMPION_SKILL_DISCIPLINE_ICONS =
 }
 
 function LibDataPacker_Build_InitializeGearSlots(control)
-    local previousGearSlotControl
-
     for _, gearSlot in ipairs(Build.GEAR_SLOTS) do
         local gearSlotControl = CreateControlFromVirtual('$(parent)Slot', control, 'LibDataPacker_Build_GearPeaceTemplate', gearSlot)
-        gearSlotControl:GetNamedChild('SlotName'):SetText(SLOT_NAMES[gearSlot])
+        local slotName = gearSlotControl:GetNamedChild('SlotName')
 
-        if previousGearSlotControl then
-            gearSlotControl:SetAnchor(TOPLEFT, previousGearSlotControl, BOTTOMLEFT)
-        end
-
-        previousGearSlotControl = gearSlotControl
+        slotName:SetText(SLOT_NAMES[gearSlot])
     end
 end
 
@@ -127,14 +121,26 @@ local function LayoutGear(build)
     local CONTROL = LibDataPacker_Build_TLCGear
     local gear = build[Build.GEAR]
 
-    for slot, gearPiece in pairs(gear) do
+    local previousGearSlotControl
+
+    for _, slot in ipairs(Build.GEAR_SLOTS) do
+        local slotControl = CONTROL:GetNamedChild('Slot'..slot)
+
+        local gearPiece = gear[slot]
         if gearPiece[1] ~= 0 then
             local itemLink = ('|H1:item:%i:%i:50:%i:370:50:%i:0:0:0:0:0:0:0:2049:9:0:1:0:2900:0|h|h'):format(gearPiece[1], 359 + gearPiece[2], gearPiece[4], gearPiece[3])
-
-            local slotControl = CONTROL:GetNamedChild('Slot' .. slot)
             slotControl.itemLink = itemLink
-
             LayoutGearSlot(slotControl, itemLink)
+
+            if previousGearSlotControl then
+                slotControl:SetAnchor(TOPLEFT, previousGearSlotControl, BOTTOMLEFT, 0, 8)
+            end
+
+            previousGearSlotControl = slotControl
+            slotControl:SetHidden(false)
+        else
+            slotControl:SetAnchor(TOPLEFT)
+            slotControl:SetHidden(true)
         end
     end
 end
@@ -266,6 +272,18 @@ local function LayoutBasicInfo(build)
     CONTROL:GetNamedChild('AVARankLabel'):SetText(('(%s)'):format(GetAvARankName(nil, ava_rank)))
 end
 
+local function LayoutShortBasicInfo(shortBuild)
+    local CONTROL = LibDataPacker_Build_TLCBasicInfo
+
+    local race = shortBuild[Build.RACE]
+    local class = shortBuild[Build.CLASS]
+
+    CONTROL:GetNamedChild('RaceAndClass'):SetText(('%s %s'):format(GetRaceName(nil, race), GetClassName(nil, class)))
+
+    CONTROL:GetNamedChild('AllianceIcon'):SetTexture(GetLargeAllianceSymbolIcon(alliance))
+    CONTROL:GetNamedChild('AllianceIcon'):SetColor(GetAllianceColor(alliance):UnpackRGBA())
+end
+
 -- ----------------------------------------------------------------------------
 
 local DISCIPLINE_TYPE_TO_ID = {
@@ -388,6 +406,10 @@ end
 function LibDataPacker_Build_LayoutBuild(build)
     build = build or Build.GetLocalPlayerBuild()
 
+    if type(build) == 'string' then
+        build = Build.UnpackBuild(build)
+    end
+
     LayoutBasicInfo(build)
     LayoutGear(build)
     LayoutSkills(build)
@@ -398,6 +420,29 @@ function LibDataPacker_Build_LayoutBuild(build)
     LayoutBoons(build)
     LayoutFood(build)
     LayoutVampireOrWWBuff(build)
+
+    LibDataPacker_Build_TLC:SetHidden(false)
+end
+
+function LibDataPacker_Build_LayoutShortBuild(shortBuild)
+    shortBuild = shortBuild or Build.GetLocalPlayerShortBuild()
+
+    if type(shortBuild) == 'string' then
+        shortBuild = Build.UnpackShortBuild(shortBuild)
+    end
+
+    LayoutShortBasicInfo(shortBuild)
+    LayoutGear(shortBuild)
+    LayoutSkills(shortBuild)
+    -- LayoutAttributes(shortBuild)
+    -- LayoutStats(shortBuild)
+    LayoutConstellations(shortBuild)
+    LayoutSkillLines(shortBuild)
+    LayoutBoons(shortBuild)
+    LayoutFood(shortBuild)
+    LayoutVampireOrWWBuff(shortBuild)
+
+    LibDataPacker_Build_TLC:SetHidden(false)
 end
 
 -- do

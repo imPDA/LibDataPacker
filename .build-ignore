@@ -1,0 +1,8 @@
+.build-ignore
+.git
+.github
+.gitignore
+.vscode
+changelog.txt
+description.txt
+README.md

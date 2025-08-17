@@ -369,7 +369,7 @@ local IGNORE_NAMES = true
 local Skill = setmetatable({}, { __index = BaseField })
 Skill.__index = Skill
 
---- Creates a new Enum field
+--- Creates a new Skill field
 --- @param name string|nil The field name
 --- @param ignoreNames boolean|nil
 --- @return Skill @The new Skills field
@@ -492,10 +492,24 @@ local Build = Field.Table(nil, {
 
     Field.Array('constellations', 12, Field.Enum(nil, CHAMPION_SLOTTABLE_SKILLS_LOOKUP_TABLE, true)),
 
-    Field.Enum('food', FOOD_ENUM),
+    Field.Enum('food', FOOD_ENUM, nil, 10),
 
     Field.Array('skillLines', 3, Field.Enum(nil, SKILL_LINES_LOOKUP_TABLE, true))
 }, IGNORE_NAMES)
+
+local SHORT_BUILD_SCHEME = Build:ShallowCopy({
+    'race',
+    'class',
+    'skills',
+    'boon1',
+    'boon2',
+    'WWorVampire',
+    'gear',
+    'constellations',
+    'food',
+    'skillLines',
+})
+GLOBAL_SHORT_BUILD_SCHEME = SHORT_BUILD_SCHEME
 
 -- ----------------------------------------------------------------------------
 
@@ -538,7 +552,7 @@ local function unflattenSkills(flatArray)
     }
 
     for i, skill in ipairs(flatArray) do
-        skillsTable[math.floor(i / 7)][i % 7 + 2] = skill
+        skillsTable[math.floor(i / 7)][(i - 1) % 6 + 3] = skill
     end
 
     return skillsTable
@@ -581,6 +595,25 @@ local BUILD = {
     [FOOD]              = GetFood,
     [CLASS_SKILL_LINES] = GetClassSkillLines,
 }
+
+local SHORT_BUILD = {}
+do
+    local parts = {
+        --[[ 1]]RACE,
+        --[[ 2]]CLASS,
+        --[[ 3]]SKILLS,
+        --[[ 4]]FIRST_BOON,
+        --[[ 5]]SECOND_BOON,
+        --[[ 6]]WW_VAMP_BUFF,
+        --[[ 7]]GEAR,
+        --[[ 8]]CONSTELLATIONS,
+        --[[ 9]]FOOD,
+        --[[10]]CLASS_SKILL_LINES,
+    }
+    for _, part in pairs(parts) do
+        SHORT_BUILD[part] = BUILD[part]
+    end
+end
 
 local function GetSlotType(build, slot, hotbar)
     if hotbar ~= HOTBAR_CATEGORY_PRIMARY and hotbar ~= HOTBAR_CATEGORY_BACKUP then
@@ -673,6 +706,84 @@ local function UnpackBuild(packedBuild)
     return build
 end
 
+-- ----------------------------------------------------------------------------
+
+local function GetLocalPlayerShortBuild()
+    local build = {}
+
+    for index, factoryFunction in pairs(SHORT_BUILD) do
+        build[index] = factoryFunction()
+    end
+
+    setmetatable(build, mt)
+
+    return build
+end
+
+local indexing = {}
+do
+    for k, v in pairs(SHORT_BUILD) do
+        indexing[#indexing+1] = k
+    end
+    table.sort(indexing)
+end
+
+local function reIndexShortBuild(tbl)
+    local newTbl = {}
+
+    for i = 1, #indexing do
+        newTbl[i] = tbl[indexing[i]]
+    end
+
+    return newTbl
+end
+
+local function reIndexShortBuildBack(tbl)
+    local newTbl = {}
+
+    for i = 1, #indexing do
+        newTbl[indexing[i]] = tbl[i]
+    end
+
+    return newTbl
+end
+
+local function PackShortBuild(shortBuild)
+    shortBuild[SKILLS] = flattenSkills(shortBuild[SKILLS])
+    shortBuild[FIRST_BOON] = shortBuild[FIRST_BOON] or 0
+    shortBuild[SECOND_BOON] = shortBuild[SECOND_BOON] or 0
+    shortBuild[WW_VAMP_BUFF] = shortBuild[WW_VAMP_BUFF] or 0
+    shortBuild[GEAR] = convertToArray(shortBuild[GEAR], GEAR_SLOTS)
+    shortBuild[FOOD] = shortBuild[FOOD] or 0
+
+    shortBuild = reIndexShortBuild(shortBuild)
+
+    return LDP.Pack(shortBuild, SHORT_BUILD_SCHEME, BUILD_BASE)
+end
+
+local function GetPackedLocalPlayerShortBuild()
+    return PackShortBuild(GetLocalPlayerShortBuild())
+end
+
+local function UnpackShortBuild(packedShortBuild)
+    local shortBuild = LDP.Unpack(packedShortBuild, SHORT_BUILD_SCHEME, BUILD_BASE)
+
+    shortBuild = reIndexShortBuildBack(shortBuild)
+
+    shortBuild[SKILLS] = unflattenSkills(shortBuild[SKILLS])
+    shortBuild[FIRST_BOON] = shortBuild[FIRST_BOON] ~= 0 and shortBuild[FIRST_BOON] or nil
+    shortBuild[SECOND_BOON] = shortBuild[SECOND_BOON] ~= 0 and shortBuild[SECOND_BOON] or nil
+    shortBuild[WW_VAMP_BUFF] = shortBuild[WW_VAMP_BUFF] ~= 0 and shortBuild[WW_VAMP_BUFF] or nil
+    shortBuild[GEAR] = convertToIndexedTable(shortBuild[GEAR], GEAR_SLOTS)
+    shortBuild[FOOD] = shortBuild[FOOD] ~= 0 and shortBuild[FOOD] or nil
+
+    setmetatable(shortBuild, mt)
+
+    return shortBuild
+end
+
+-- ----------------------------------------------------------------------------
+
 LDP.Extra = LDP.Extra or {}
 LDP.Extra.Build = {
     ALLIANCE            = ALLIANCE,
@@ -701,6 +812,12 @@ LDP.Extra.Build = {
     -- GetSlotType = GetSlotType,
 
     MaxLength = LDP.Diagnostics.MaxLength(BUILD_SCHEME, BUILD_BASE),
+
+    GetLocalPlayerShortBuild = GetLocalPlayerShortBuild,
+    GetPackedLocalPlayerShortBuild = GetPackedLocalPlayerShortBuild,
+
+    PackShortBuild = PackShortBuild,
+    UnpackShortBuild = UnpackShortBuild,
 }
 
 --[[ little self test

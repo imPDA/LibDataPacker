@@ -1,0 +1,80 @@
+Simple library to pack/compress data. Suitable for 
+- sharing data via text (custom links, export/import, etc.)
+- saved variables
+
+Currently used in my addon [URL="https://www.esoui.com/downloads/info4032-ImpressiveStats.html"]ImpressiveStats[/URL] (managed to decrease size of saved variables 10 times).
+
+[U]Example 1: share full build data (as SuperStar does)[/U]
+
+[spoiler]
+- Create data schema
+[highlight="Lua"]
+local IGNORE_NAMES = true
+
+local item = Field.Table('item', {
+    Field.Number('id',          20),
+    Field.Number('quality',     3),
+    Field.Number('trait',       6),
+    Field.Number('ench. id',    20),
+}, IGNORE_NAMES)
+
+local superStarDataSchema = Field.Table(nil, {
+    Field.Number('alliance',        2),
+    Field.Number('race',            3),
+    Field.Number('class',           3),
+    Field.Number('ava rank',        6),
+    Field.Number('skill points',    10),
+    Field.Number('level, cp',       12),
+
+    Field.Array('skills',       12, Field.Number(nil, 20)),
+    Field.Array('boons',        2,  Field.Number(nil, 4)),
+
+    Field.Number('vampire/ww',      3),
+
+    Field.Array('attributes',   3,  Field.Number(nil, 7)),
+    Field.Array('resources',    3,  Field.Number(nil, 16)),
+    Field.Array('regens',       3,  Field.Number(nil, 14)),
+    Field.Array('wpd/spd',      2,  Field.Number(nil, 14)),
+    Field.Array('critrate',     2,  Field.Number(nil, 15)),
+    Field.Array('penetration',  2,  Field.Number(nil, 16)),
+    Field.Array('resistance',   2,  Field.Number(nil, 17)),
+    Field.Array('gear',         14, item),
+    Field.Array('CP stars',     12, Field.Number(nil, 14)),
+}, IGNORE_NAMES)
+[/highlight]
+
+- This schema can be used to pack data like this:
+[highlight="Lua"]
+local data = <data you want to pack>
+local base = LibDataPacker.Base.Base64LinkSafe
+
+local packedData = LibDataPacker.Pack(data, superStarDataSchema, base)
+[/highlight]
+
+- Packed data is a simple string you can send, copy, save to saved variables and so on
+
+[spoiler]
+- ["data"] - actual data collected
+- ["base64string"] - packed data
+- ["stringLength"] - length of packed data string
+- ["unpackedData"] - unpacked data
+- ["equals"] - result of deep table comparison function
+- run() - function to run example (you can find full example code on GitHub)
+
+[IMG]https://i.imgur.com/xxB3Mkk.png[/IMG]
+[/spoiler]
+
+- To unpack
+
+[highlight="Lua"]
+local data = LibDataPacker.Unpack(packedData, superStarDataSchema, base)
+[/highlight]
+[/spoiler]
+
+Plans
+[LIST]
+[*]Add more working bases (due to game bugs and limitations I found many of them unusable and unreliable for storing data in saved variables or sharing via links due to profanity filter)
+[*]Add detailed documentation how to use it :)
+[/LIST]
+
+You can reach me out via Discrod (@impda) or in [URL="https://www.esoui.com/forums/showthread.php?t=11182"]this[/URL] forum thread.
