@@ -4,8 +4,28 @@ local floor = math.floor
 local ceil = math.ceil
 local log = math.log
 local char = string.char
+local BitAnd = BitAnd
+local BitOr = BitOr
+local BitLShift = BitLShift
+local BitRShift = BitRShift
+local ipairs = ipairs
 
 local lib = {}
+
+-- ----------------------------------------------------------------------------
+
+local meters = {}
+-- GLOBAL_IMP_LIB_DATA_PACKER_METERS = meters
+
+local function GetMeter(schema)
+    local meter = meters[schema]
+    if not meter then
+        meter = PerformanceMeter.New(5000)
+        meters[schema] = meter
+    end
+
+    return meter
+end
 
 -- ----------------------------------------------------------------------------
 
@@ -689,10 +709,28 @@ function lib.Pack(data, schema, base)
     return base:Encode(binaryBuffer)
 end
 
-function lib.Unpack(data, schema, base)
+function lib.UnpackMeteredPerStage(data, schema, base)
+    base = base or lib.Base.Base64RCF4648
+
+    local meter = GetMeter(schema)
+
+    local t0 = GetGameTimeSeconds()
+    local decoded = base:Decode(data)
+    meter:AddMeasurement(1, GetGameTimeSeconds() - t0)
+
+    t0 = GetGameTimeSeconds()
+    local unserialized = schema:Unserialize(decoded)
+    meter:AddMeasurement(2, GetGameTimeSeconds() - t0)
+
+    return unserialized
+end
+
+function lib.UnpackUnmetered(data, schema, base)
     base = base or lib.Base.Base64RCF4648
     return schema:Unserialize(base:Decode(data))
 end
+
+lib.Unpack = lib.UnpackUnmetered
 
 function lib.Repack(data, oldSchema, newSchema, oldBase, newBase)
     newSchema = newSchema or oldSchema

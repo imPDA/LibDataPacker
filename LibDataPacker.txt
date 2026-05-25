@@ -6,6 +6,7 @@
 ## OptionalDependsOn: LibDebugLogger LibBinaryEncode WizardsWardrobe Zgoo LibFoodDrinkBuff
 
 logger.lua
+meter.lua
 
 ; binarybuffer.lua
 chunkbuffer.lua
@@ -24,3 +25,4 @@ extra/build/ui.xml
 ; examples/ww.lua
 ; examples/primitivebases.lua
 ; examples/itemlinks.lua
+; examples/mappins.lua
