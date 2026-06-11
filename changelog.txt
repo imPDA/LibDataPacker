@@ -1,3 +1,6 @@
+V. 5
+- Added ClassMastery to build, old builds should be unpacked normally, no repack needed
+
 V. 4
 BUILD
 - New extra module to share full build via ingame links

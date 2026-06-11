@@ -174,6 +174,16 @@ local SKILL_LINES_LOOKUP_TABLE = {
     317,  -- Vengeance Herald of the Tome
 }
 
+-- 351-357 - Class Mastery
+-- 351 - Dragonknight
+-- 352 - Arcanist
+-- 353 - Necromancer
+-- 354 - Warden
+-- 355 - Templar
+-- 356 - Nightblade
+-- 357 - Sorcerer
+
+
 -- ----------------------------------------------------------------------------
 
 local function GetAlliance()    return GetUnitAlliance('player')        end
@@ -342,16 +352,51 @@ local function GetClassSkillLines()
     local skillLines = {}
 
     for i = 1, GetNumSkillLines(SKILL_TYPE_CLASS) do
-        local currentRank, isAdvised, isActive, isDiscovered, isProgressionAccountWide, isInTraining = GetSkillLineDynamicInfo(SKILL_TYPE_CLASS, i)
+        local currentRank, isAdvised, isActive, isDiscovered, isAccountSkill, isInTraining, isClassMastery = GetSkillLineDynamicInfo(SKILL_TYPE_CLASS, i)
         local skillLineId = GetSkillLineId(SKILL_TYPE_CLASS, i)
 
-        if isActive then
+        if isActive and not isClassMastery then
             table.insert(skillLines, skillLineId)
         end
     end
 
     return skillLines
 end
+
+local function GetClassMastery()
+    local classMastery = {}
+
+    for skillLineIndex = GetNumSkillLines(SKILL_TYPE_CLASS), 1, -1 do
+        local currentRank, isAdvised, isActive, isDiscovered, isAccountSkill, isInTraining, isClassMastery = GetSkillLineDynamicInfo(SKILL_TYPE_CLASS, skillLineIndex)
+
+        -- local skillLineId = GetSkillLineId(SKILL_TYPE_CLASS, i)
+        -- local skillLineName = GetSkillLineNameById(skillLineId)
+        if isClassMastery then
+            for skillIndex = 1, GetNumSkillAbilities(SKILL_TYPE_CLASS, skillLineIndex) do
+                local name, texture, earnedRank, passive, ultimate, purchased, progressionIndex, rank = GetSkillAbilityInfo(SKILL_TYPE_CLASS, skillLineIndex, skillIndex)
+                if purchased then
+                    local abilityId = GetSkillAbilityId(SKILL_TYPE_CLASS, skillLineIndex, skillIndex)
+                    classMastery[#classMastery+1] = abilityId
+                end
+            end
+        end
+    end
+
+    return classMastery
+end
+
+--[[
+local function _printSkillLinesDebug()
+    for i = 1, GetNumSkillLines(SKILL_TYPE_CLASS) do
+        local currentRank, isAdvised, isActive, isDiscovered, isAccountSkill, isInTraining, isClassMastery = GetSkillLineDynamicInfo(SKILL_TYPE_CLASS, i)
+        local skillLineId = GetSkillLineId(SKILL_TYPE_CLASS, i)
+        local skillLineName = GetSkillLineNameById(skillLineId)
+
+        df('%d %s (%d) - active: %s, isClassMastery: %s', currentRank, skillLineName, skillLineId, tostring(isActive), tostring(isClassMastery))
+    end
+end
+IMP_GLOBAL_PRINT_SKILL_LINES_DEBUG = _printSkillLinesDebug
+--]]
 
 -- ---------------------------------------------------------------------------
 
@@ -494,7 +539,9 @@ local Build = Field.Table(nil, {
 
     Field.Enum('food', FOOD_ENUM, nil, 10),
 
-    Field.Array('skillLines', 3, Field.Enum(nil, SKILL_LINES_LOOKUP_TABLE, true))
+    Field.Array('skillLines', 3, Field.Enum(nil, SKILL_LINES_LOOKUP_TABLE, true)),
+
+    Field.Array('classMastery', 2, Field.Optional(Skill.New(nil, true)))
 }, IGNORE_NAMES)
 
 local SHORT_BUILD_SCHEME = Build:ShallowCopy({
@@ -508,6 +555,7 @@ local SHORT_BUILD_SCHEME = Build:ShallowCopy({
     'constellations',
     'food',
     'skillLines',
+    'classMastery',
 })
 GLOBAL_SHORT_BUILD_SCHEME = SHORT_BUILD_SCHEME
 
@@ -576,6 +624,7 @@ local GEAR              = 13
 local CONSTELLATIONS    = 14
 local FOOD              = 15
 local CLASS_SKILL_LINES = 16
+local CLASS_MASTERY     = 17
 
 local BUILD = {
     [ALLIANCE]          = GetAlliance,
@@ -594,6 +643,7 @@ local BUILD = {
     [CONSTELLATIONS]    = GetConstellations,
     [FOOD]              = GetFood,
     [CLASS_SKILL_LINES] = GetClassSkillLines,
+    [CLASS_MASTERY]     = GetClassMastery,
 }
 
 local SHORT_BUILD = {}
@@ -609,6 +659,7 @@ do
         --[[ 8]]CONSTELLATIONS,
         --[[ 9]]FOOD,
         --[[10]]CLASS_SKILL_LINES,
+        --[[11]]CLASS_MASTERY,
     }
     for _, part in pairs(parts) do
         SHORT_BUILD[part] = BUILD[part]
@@ -802,6 +853,7 @@ LDP.Extra.Build = {
     CONSTELLATIONS      = CONSTELLATIONS,
     FOOD                = FOOD,
     CLASS_SKILL_LINES   = CLASS_SKILL_LINES,
+    CLASS_MASTERY       = CLASS_MASTERY,
 
     GEAR_SLOTS          = GEAR_SLOTS,
 
